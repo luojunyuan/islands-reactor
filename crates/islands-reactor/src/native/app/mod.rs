@@ -10,7 +10,7 @@ use windows::{
     core::{Error, HRESULT, Result},
 };
 
-use super::winui::*;
+use crate::native::winui::*;
 
 const E_FAIL: HRESULT = HRESULT(0x80004005u32 as i32);
 

@@ -1,5 +1,4 @@
 use crate::controls::*;
-use islands_reactor::core::{RichTextBlock, RichTextInline, RichTextParagraph, RichTextRun};
 use islands_reactor::*;
 
 pub fn rich_text_block_page(_: &(), cx: &mut RenderCx) -> Element {

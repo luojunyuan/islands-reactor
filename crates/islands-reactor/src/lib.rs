@@ -13,7 +13,6 @@ mod native;
 
 mod accessibility;
 mod animation;
-mod backend;
 mod callback;
 mod component;
 mod component_element;
@@ -25,12 +24,13 @@ mod error_boundary;
 mod generated;
 mod geometry;
 mod into_elements;
+mod ir;
 mod keyboard;
 mod modifiers;
 mod pointer;
 mod prop_binding;
 mod rc_fn;
-mod reconciler;
+mod reconcile;
 mod render_context;
 mod render_host;
 mod resource;
@@ -49,8 +49,6 @@ pub mod dsl;
 pub(crate) use accessibility::*;
 #[allow(unused_imports)]
 pub(crate) use animation::*;
-#[allow(unused_imports)]
-pub(crate) use backend::*;
 #[allow(unused_imports)]
 pub(crate) use callback::*;
 #[allow(unused_imports)]
@@ -74,6 +72,8 @@ pub(crate) use geometry::*;
 #[allow(unused_imports)]
 pub(crate) use into_elements::*;
 #[allow(unused_imports)]
+pub(crate) use ir::*;
+#[allow(unused_imports)]
 pub(crate) use keyboard::*;
 #[allow(unused_imports)]
 pub(crate) use modifiers::*;
@@ -84,7 +84,7 @@ pub(crate) use prop_binding::*;
 #[allow(unused_imports)]
 pub(crate) use rc_fn::*;
 #[allow(unused_imports)]
-pub(crate) use reconciler::*;
+pub(crate) use reconcile::*;
 #[allow(unused_imports)]
 pub(crate) use render_context::*;
 #[allow(unused_imports)]
@@ -110,7 +110,6 @@ pub use windows_core::{Error, Interface, Result};
 pub use windows_time::{DateTime, TimeSpan};
 
 pub use animation::*;
-pub use backend::{Backend, ControlId};
 pub use callback::*;
 pub use component::*;
 pub use component_element::*;
@@ -130,6 +129,7 @@ pub use element::{
 };
 pub use error_boundary::*;
 pub use into_elements::IntoElements;
+pub use ir::{Backend, ControlId};
 pub use native::app;
 pub use native::app::*;
 pub use native::bootstrap;
@@ -145,6 +145,10 @@ pub(crate) use native::{bindings, bindings_iuxc, diagnostics};
 pub use render_context::*;
 pub use render_host::*;
 pub use resource::*;
+pub use rich_text::{
+    RichTextBlock, RichTextHyperlink, RichTextInline, RichTextLineBreak, RichTextParagraph,
+    RichTextRun,
+};
 pub use templated_list::{SelectionMode, flip_view, grid_view, list_view, virtual_list};
 pub use theme::*;
 pub use window::*;

@@ -27,7 +27,7 @@ pub struct Modifiers {
     pub foreground: Option<Brush>,
     pub font_family: Option<String>,
     pub font_size: Option<f64>,
-    pub theme_bindings: Option<Box<rustc_hash::FxHashMap<crate::backend::Prop, ThemeRef>>>,
+    pub theme_bindings: Option<Box<rustc_hash::FxHashMap<crate::ir::Prop, ThemeRef>>>,
     pub animations: Option<Box<crate::animation::AnimationModifiers>>,
     pub attached: Option<AttachedProps>,
     pub accessibility: Option<Box<AccessibilityModifiers>>,

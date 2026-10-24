@@ -51,7 +51,7 @@ impl<B: Backend + 'static> Reconciler<B> {
                 }
             }
             Children::Keyed(list) => {
-                for child in crate::reconciler::collect_live(list) {
+                for child in crate::reconcile::collect_live(list) {
                     if let Some(child_id) = self.mount(child) {
                         self.append_child_tracked(id, child_id);
                     }
@@ -184,7 +184,7 @@ impl<B: Backend + 'static> Reconciler<B> {
     }
 
     fn mount_pivot_item(&mut self, parent: ControlId, item: &PivotItem) {
-        let item_id = self.acquire_control(crate::backend::ControlKind::PivotItem);
+        let item_id = self.acquire_control(crate::ir::ControlKind::PivotItem);
         self.backend.set_prop(
             item_id,
             Prop::ItemHeader,

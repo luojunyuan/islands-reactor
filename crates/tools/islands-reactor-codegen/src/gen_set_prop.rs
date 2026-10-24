@@ -160,8 +160,8 @@ pub fn generate(controls: &[Control], resolver: &MetadataResolver) -> String {
     }
 
     format_generated(quote! {
-        use super::*;
-        use super::convert::string_as_textblock;
+        use super::super::*;
+        use super::super::convert::string_as_textblock;
         use crate::bindings as Xaml;
         use crate::bindings_iuxc as Iuxc;
         /// Try to handle a `set_prop` call via generated dispatch.

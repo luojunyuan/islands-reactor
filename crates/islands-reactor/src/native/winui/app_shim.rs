@@ -35,7 +35,8 @@ impl IXamlMetadataProvider_Impl for IslandApplicationOverrides_Impl {
     }
 
     fn GetXamlTypeByFullName(&self, full_name: &windows_core::HSTRING) -> Result<IXamlType> {
-        self.iuxc_provider()?.GetXamlTypeByFullName(full_name)
+        let full_name = full_name.to_string_lossy();
+        self.iuxc_provider()?.GetXamlTypeByFullName(&full_name)
     }
 
     fn GetXmlnsDefinitions(&self) -> Result<windows_core::Array<XmlnsDefinition>> {

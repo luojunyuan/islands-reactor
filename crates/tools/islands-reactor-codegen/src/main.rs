@@ -22,7 +22,7 @@ const XAML_MINIMAL_FILTERS: &[&str] = &[
     "Windows.Storage.IStorageFile",
     "Windows.Storage.StorageFile::{GetFileFromPathAsync}",
     "Windows.System.DispatcherQueue::{GetForCurrentThread}",
-    "Windows.System.DispatcherQueueHandler::*",
+    "Windows.System.DispatcherQueueHandler",
     "Windows.System.DispatcherQueuePriority",
     "Windows.System.IDispatcherQueue::{TryEnqueue, TryEnqueueWithPriority}",
     "Windows.UI.Color",
@@ -32,7 +32,7 @@ const XAML_MINIMAL_FILTERS: &[&str] = &[
     "Windows.UI.ViewManagement.IUISettings3::{GetColorValue, add_ColorValuesChanged, remove_ColorValuesChanged}",
     "Windows.UI.Xaml.Application::{CreateInstance, get_Current}",
     "Windows.UI.Xaml.IApplication::{get_Resources, put_Resources, add_UnhandledException}",
-    "Windows.UI.Xaml.IApplicationOverrides::*",
+    "Windows.UI.Xaml.IApplicationOverrides",
     "Windows.UI.Xaml.Controls.AutoSuggestBox::{CreateInstance}",
     "Windows.UI.Xaml.Controls.IAutoSuggestBox::{get_Text, put_Text, put_PlaceholderText, put_Header, add_TextChanged, add_SuggestionChosen}",
     "Windows.UI.Xaml.Controls.IAutoSuggestBox2::{add_QuerySubmitted}",
@@ -127,7 +127,7 @@ const XAML_MINIMAL_FILTERS: &[&str] = &[
     "Windows.UI.Xaml.Controls.ScrollViewer::{CreateInstance}",
     "Windows.UI.Xaml.Controls.IScrollViewer::{put_HorizontalScrollBarVisibility, put_VerticalScrollBarVisibility}",
     "Windows.UI.Xaml.Controls.SelectionChangedEventArgs",
-    "Windows.UI.Xaml.Controls.SelectionChangedEventHandler::*",
+    "Windows.UI.Xaml.Controls.SelectionChangedEventHandler",
     "Windows.UI.Xaml.Controls.Slider::{CreateInstance}",
     "Windows.UI.Xaml.Controls.ISlider::{put_Orientation, put_StepFrequency}",
     "Windows.UI.Xaml.Controls.ISlider2::{put_Header}",
@@ -198,8 +198,8 @@ const XAML_MINIMAL_FILTERS: &[&str] = &[
     "Windows.UI.Xaml.Hosting.IDesktopWindowXamlSource::{put_Content}",
     "Windows.UI.Xaml.Hosting.WindowsXamlManager::{InitializeForCurrentThread}",
     "Windows.UI.Xaml.Interop.TypeName",
-    "Windows.UI.Xaml.Markup.IXamlMetadataProvider::*",
-    "Windows.UI.Xaml.Markup.IXamlType::*",
+    "Windows.UI.Xaml.Markup.IXamlMetadataProvider",
+    "Windows.UI.Xaml.Markup.IXamlType",
     "Windows.UI.Xaml.Markup.XamlReader::{Load}",
     "Windows.UI.Xaml.Markup.XmlnsDefinition",
     "Windows.UI.Xaml.Media.Brush",
@@ -214,7 +214,7 @@ const XAML_MINIMAL_FILTERS: &[&str] = &[
     "Windows.UI.Xaml.ResourceDictionary::{CreateInstance}",
     "Windows.UI.Xaml.IResourceDictionary::{get_MergedDictionaries}",
     "Windows.UI.Xaml.RoutedEventArgs",
-    "Windows.UI.Xaml.RoutedEventHandler::*",
+    "Windows.UI.Xaml.RoutedEventHandler",
     "Windows.UI.Xaml.Shapes.Ellipse::{CreateInstance}",
     "Windows.UI.Xaml.Shapes.Line::{CreateInstance}",
     "Windows.UI.Xaml.Shapes.ILine::{put_X1, put_Y1, put_X2, put_Y2}",
@@ -249,10 +249,10 @@ const IUXC_MINIMAL_FILTERS: &[&str] = &[
     "Islands.UI.Xaml.Controls.XamlMetaDataProvider::{CreateInstance}",
 ];
 
-const IUXC_RUNTIME_FILES: &[&str] = &[
-    "Islands.UI.Xaml.Controls.dll",
-    "Islands.UI.Xaml.Controls.pri",
-];
+const BACKEND_GENERATED_MODULE: &str = "mod attach_event;\n\
+mod set_prop;\n\
+pub(super) use attach_event::dispatch as dispatch_attach_event;\n\
+pub(super) use set_prop::dispatch as dispatch_set_prop;\n";
 
 fn main() {
     let mut args = env::args().skip(1);
@@ -278,7 +278,6 @@ fn generate_bindings() -> Result<(), String> {
     generate_xaml_bindings(&root)?;
     generate_iuxc_module(&root, &iuxc_winmd)?;
     generate_reactor_code(&root, &iuxc_winmd)?;
-    vendor_iuxc_runtime(&root, &iuxc_package)?;
     Ok(())
 }
 
@@ -396,12 +395,16 @@ fn generate_reactor_code(root: &Path, iuxc_winmd: &Path) -> Result<(), String> {
         &gen_bindings::generate(&controls),
     )?;
     write_generated_rs(
-        &root.join("crates/islands-reactor/src/native/winui/backend/generated_set_prop.rs"),
+        &root.join("crates/islands-reactor/src/native/winui/backend/generated/set_prop.rs"),
         &gen_set_prop::generate(&controls, &resolver),
     )?;
     write_generated_rs(
-        &root.join("crates/islands-reactor/src/native/winui/backend/generated_attach_event.rs"),
+        &root.join("crates/islands-reactor/src/native/winui/backend/generated/attach_event.rs"),
         &gen_attach::generate(&controls, &resolver),
+    )?;
+    write_generated_rs(
+        &root.join("crates/islands-reactor/src/native/winui/backend/generated.rs"),
+        BACKEND_GENERATED_MODULE,
     )
 }
 
@@ -451,47 +454,6 @@ fn write_generated_rs(path: &Path, code: &str) -> Result<(), String> {
 fn run_bindgen(args: Vec<&str>) -> Result<(), String> {
     let _warnings = windows_bindgen::bindgen(args);
     Ok(())
-}
-
-fn vendor_iuxc_runtime(root: &Path, package: &Path) -> Result<(), String> {
-    for arch in ["x64", "arm64"] {
-        let runtime = root.join("crates/islands-reactor-setup/runtime").join(arch);
-        fs::create_dir_all(&runtime).map_err(|err| {
-            format!(
-                "failed to create runtime asset dir {}: {err}",
-                runtime.display()
-            )
-        })?;
-
-        for name in IUXC_RUNTIME_FILES {
-            let src = iuxc_native_asset(package, arch, name)?;
-            copy_file(&src, &runtime.join(name))?;
-        }
-    }
-
-    write_iuxc_runtime_rs(&root.join("crates/islands-reactor-setup/src/iuxc_runtime.rs"))
-}
-
-fn write_iuxc_runtime_rs(path: &Path) -> Result<(), String> {
-    let mut code = String::new();
-    code.push_str("use std::path::{Path, PathBuf};\n\n");
-    code.push_str(&format!(
-        "pub const ISLANDS_UI_XAML_VERSION: &str = {:?};\n",
-        ISLANDS_UI_XAML_VERSION
-    ));
-    code.push_str("pub const CONTROLS_DLL: &str = \"Islands.UI.Xaml.Controls.dll\";\n");
-    code.push_str("pub const CONTROLS_PRI: &str = \"Islands.UI.Xaml.Controls.pri\";\n");
-    code.push_str("pub const RUNTIME_FILES: &[&str] = &[CONTROLS_DLL];\n\n");
-    code.push_str("pub fn runtime_asset_dir(arch: &str) -> Option<PathBuf> {\n");
-    code.push_str("    match arch {\n");
-    code.push_str(
-        "        \"x64\" | \"arm64\" => Some(Path::new(env!(\"CARGO_MANIFEST_DIR\")).join(\"runtime\").join(arch)),\n",
-    );
-    code.push_str("        _ => None,\n");
-    code.push_str("    }\n");
-    code.push_str("}\n");
-
-    write_if_changed(path, &rustfmt(&code))
 }
 
 fn write_if_changed(path: &Path, content: &str) -> Result<(), String> {
@@ -666,6 +628,7 @@ fn copy_if_changed(src: &Path, dst: &Path) -> Result<(), String> {
 fn patch_xaml_bindings(path: &Path) -> Result<(), String> {
     let mut code = fs::read_to_string(path)
         .map_err(|err| format!("failed to read {}: {err}", path.display()))?;
+    patch_windows_core_api(&mut code);
     insert_selection_changed_event_handler_ctor(&mut code)?;
     fs::write(path, code).map_err(|err| format!("failed to write {}: {err}", path.display()))
 }
@@ -674,7 +637,20 @@ fn patch_iuxc_bindings(path: &Path) -> Result<(), String> {
     let mut code = fs::read_to_string(path)
         .map_err(|err| format!("failed to read {}: {err}", path.display()))?;
     code = code.replace("xaml_bindings::", "crate::bindings::");
+    patch_windows_core_api(&mut code);
     fs::write(path, code).map_err(|err| format!("failed to write {}: {err}", path.display()))
+}
+
+fn patch_windows_core_api(code: &mut String) {
+    for name in ["Type", "CopyType", "CloneType"] {
+        *code = code.replace(
+            &format!("windows_core::{name}"),
+            &format!("windows_core::imp::{name}"),
+        );
+    }
+    *code = code
+        .replace("windows_core::imp::Box::new", "std::boxed::Box::new")
+        .replace("windows_core::Box::new", "std::boxed::Box::new");
 }
 
 fn insert_selection_changed_event_handler_ctor(code: &mut String) -> Result<(), String> {

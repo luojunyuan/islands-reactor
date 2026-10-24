@@ -21,7 +21,7 @@ use windows::{
             CREATESTRUCTW, CW_USEDEFAULT, ClientToScreen, CreateWindowExW, DefWindowProcW,
             DispatchMessageW, GWLP_USERDATA, GetClientRect, GetDpiForWindow, GetMessageW,
             GetMonitorInfoW, GetSystemMetricsForDpi, HTCAPTION, HTCLIENT, HTTOP, HTTOPLEFT,
-            HTTOPRIGHT, HTTRANSPARENT, HWND_TOP, IDC_ARROW, IsZoomed, LoadCursorW,
+            HTTOPRIGHT, HTTRANSPARENT, HWND_TOP, IDC_ARROW, IsZoomed, LWA_ALPHA, LoadCursorW,
             MONITOR_DEFAULTTONEAREST, MONITORINFO, MSG, MonitorFromWindow, NCCALCSIZE_PARAMS,
             PostMessageW, PostQuitMessage, RegisterClassW, SC_CLOSE, SC_MAXIMIZE, SC_MINIMIZE,
             SC_RESTORE, SM_CXPADDEDBORDER, SM_CYSIZEFRAME, SW_HIDE, SW_SHOW, SWP_FRAMECHANGED,
@@ -40,6 +40,7 @@ use windows_core::Interface;
 
 use crate::bindings::*;
 use crate::bindings_iuxc as Iuxc;
+use crate::winui::xaml_interop::interop::IDesktopWindowXamlSourceNative;
 use crate::*;
 
 use super::app_shim::create_island_application;
@@ -225,7 +226,7 @@ impl ReactorHost {
         configure: F,
     ) -> windows_core::Result<Self>
     where
-        F: FnOnce(&mut crate::reconciler::Reconciler<WinUIBackend>),
+        F: FnOnce(&mut crate::reconcile::Reconciler<WinUIBackend>),
     {
         Self::new_with_window_options(title, None, InnerConstraints::default(), root, configure)
     }
@@ -238,7 +239,7 @@ impl ReactorHost {
         configure: F,
     ) -> windows_core::Result<Self>
     where
-        F: FnOnce(&mut crate::reconciler::Reconciler<WinUIBackend>),
+        F: FnOnce(&mut crate::reconcile::Reconciler<WinUIBackend>),
     {
         Self::new_with_window_options_and_backdrop(title, size, _constraints, root, None, configure)
     }
@@ -252,7 +253,7 @@ impl ReactorHost {
         configure: F,
     ) -> windows_core::Result<Self>
     where
-        F: FnOnce(&mut crate::reconciler::Reconciler<WinUIBackend>),
+        F: FnOnce(&mut crate::reconcile::Reconciler<WinUIBackend>),
     {
         let backdrop = backdrop.or_else(pending_backdrop);
         let application = match Application::get_Current() {
@@ -282,7 +283,7 @@ impl ReactorHost {
             set_xaml_background_transparency(true);
         }
         let xaml_hwnd = unsafe { native_source.get_WindowHandle()? };
-        XAML_HWND.store(xaml_hwnd, Ordering::Relaxed);
+        XAML_HWND.store(xaml_hwnd.cast(), Ordering::Relaxed);
         enable_resize_layout_synchronization(hwnd, true);
         resize_xaml_island(hwnd);
 
@@ -1168,11 +1169,12 @@ fn resize_xaml_island(parent: HWND) {
 }
 
 fn initialize_core_window_handle() {
-    let Ok(core_window) = crate::xaml_interop::interop::CoreWindow::GetForCurrentThread() else {
+    let Ok(core_window) = crate::winui::xaml_interop::interop::CoreWindow::GetForCurrentThread()
+    else {
         return;
     };
     let Ok(core_window_interop) =
-        core_window.cast::<crate::xaml_interop::interop::ICoreWindowInterop>()
+        core_window.cast::<crate::winui::xaml_interop::interop::ICoreWindowInterop>()
     else {
         return;
     };
@@ -1186,8 +1188,10 @@ fn initialize_core_window_handle() {
 }
 
 fn set_xaml_background_transparency(enabled: bool) {
-    let result = crate::xaml_interop::interop::Window::Current()
-        .and_then(|window| window.cast::<crate::xaml_interop::interop::IXamlSourceTransparency>())
+    let result = crate::winui::xaml_interop::interop::Window::Current()
+        .and_then(|window| {
+            window.cast::<crate::winui::xaml_interop::interop::IXamlSourceTransparency>()
+        })
         .and_then(|transparency| unsafe { transparency.SetIsBackgroundTransparent(enabled) });
     if let Err(err) = result {
         crate::diagnostics::emit(&format!(
@@ -1272,11 +1276,11 @@ fn send_size_to_core_window(wparam: WPARAM, lparam: LPARAM) {
 }
 
 fn set_synchronization_window(hwnd: HWND) {
-    let Ok(application) = crate::xaml_interop::interop::Application::Current() else {
+    let Ok(application) = crate::winui::xaml_interop::interop::Application::Current() else {
         return;
     };
     let Ok(framework_app_private) =
-        application.cast::<crate::xaml_interop::interop::IFrameworkApplicationPrivate>()
+        application.cast::<crate::winui::xaml_interop::interop::IFrameworkApplicationPrivate>()
     else {
         return;
     };

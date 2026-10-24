@@ -895,10 +895,10 @@ fn push_live<'a>(el: &'a Element, out: &mut Vec<&'a Element>) {
 #[cfg(test)]
 mod lifecycle_tests {
     use super::*;
-    use crate::backend::{
+    use crate::callback::Callback;
+    use crate::ir::{
         Backend, ControlKind, Event, EventHandler, Op, Prop, PropValue, RecordingBackend,
     };
-    use crate::callback::Callback;
     use std::cell::RefCell;
 
     /// Each entry records a callback invocation as `(tag, native_present)`,

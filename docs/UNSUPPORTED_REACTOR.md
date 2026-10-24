@@ -3,7 +3,7 @@
 The crate follows the current Reactor layout in `reference/windows-rs`, with a
 `Windows.UI.Xaml` XAML Islands backend. It uses system XAML controls and the
 project's `Islands.UI.Xaml.Controls` runtime for the additional `ScrollView` and
-`TitleBar` controls. The setup crate stages only the Islands runtime payload.
+`TitleBar` controls. Runtime deployment is managed outside this workspace.
 
 ## Adapted Surface
 
@@ -45,5 +45,5 @@ cargo run -p islands-reactor-codegen -- generate-bindings
 ```
 
 The generator uses the Windows XAML metadata and the local Islands controls
-metadata. It also vendors the matching Islands runtime payload into
-`crates/islands-reactor-setup/runtime`.
+metadata. It generates checked-in Rust bindings and dispatch modules, but does
+not vendor runtime DLL or PRI files.

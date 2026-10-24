@@ -11,6 +11,44 @@ pub mod interop {
     use windows::Win32::windef::HWND;
 
     windows_core::imp::define_interface!(
+        IDesktopWindowXamlSourceNative,
+        IDesktopWindowXamlSourceNative_Vtbl,
+        0x3cbcf1bf_2f76_4e9c_96ab_e84b37972554
+    );
+    windows_core::imp::interface_hierarchy!(IDesktopWindowXamlSourceNative, windows_core::IUnknown);
+
+    impl IDesktopWindowXamlSourceNative {
+        pub unsafe fn AttachToWindow(&self, parent_window: HWND) -> windows_core::Result<()> {
+            unsafe {
+                (windows_core::Interface::vtable(self).AttachToWindow)(
+                    windows_core::Interface::as_raw(self),
+                    parent_window,
+                )
+                .ok()
+            }
+        }
+
+        pub unsafe fn get_WindowHandle(&self) -> windows_core::Result<HWND> {
+            unsafe {
+                let mut result = core::mem::zeroed();
+                (windows_core::Interface::vtable(self).get_WindowHandle)(
+                    windows_core::Interface::as_raw(self),
+                    &mut result,
+                )
+                .map(|| result)
+            }
+        }
+    }
+
+    #[repr(C)]
+    pub struct IDesktopWindowXamlSourceNative_Vtbl {
+        pub base__: windows_core::IUnknown_Vtbl,
+        pub AttachToWindow: unsafe extern "system" fn(*mut c_void, HWND) -> windows_core::HRESULT,
+        pub get_WindowHandle:
+            unsafe extern "system" fn(*mut c_void, *mut HWND) -> windows_core::HRESULT,
+    }
+
+    windows_core::imp::define_interface!(
         ICoreWindow,
         ICoreWindow_Vtbl,
         0x79b9d5f2_879e_4b89_b798_79e47598030c
@@ -70,7 +108,7 @@ pub mod interop {
                     windows_core::Interface::as_raw(this),
                     &mut result__,
                 )
-                .and_then(|| windows_core::Type::from_abi(result__))
+                .and_then(|| windows_core::imp::Type::from_abi(result__))
             })
         }
 
@@ -155,7 +193,7 @@ pub mod interop {
                     windows_core::Interface::as_raw(this),
                     &mut result__,
                 )
-                .and_then(|| windows_core::Type::from_abi(result__))
+                .and_then(|| windows_core::imp::Type::from_abi(result__))
             })
         }
 
@@ -284,7 +322,7 @@ pub mod interop {
                     windows_core::Interface::as_raw(this),
                     &mut result__,
                 )
-                .and_then(|| windows_core::Type::from_abi(result__))
+                .and_then(|| windows_core::imp::Type::from_abi(result__))
             })
         }
 

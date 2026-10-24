@@ -1,6 +1,6 @@
 //! Per-element pointer / tap event handlers carried on
 //! [`Modifiers::pointer_handlers`](super::Modifiers::pointer_handlers)
-//! and applied via [`Backend::set_pointer_handlers`](super::backend::Backend::set_pointer_handlers).
+//! and applied via [`Backend::set_pointer_handlers`](super::ir::Backend::set_pointer_handlers).
 //! These mirror the universal `UIElement` pointer events (`Tapped`,
 //! `RightTapped`, `PointerPressed`, `PointerReleased`, `PointerExited`).
 

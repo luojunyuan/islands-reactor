@@ -89,7 +89,6 @@ name = "islands-reactor-demo"
 version = "0.1.0"
 dependencies = [
  "islands-reactor",
- "islands-reactor-setup",
 ]
 
 [[package]]
@@ -97,7 +96,6 @@ name = "islands-reactor-gallery"
 version = "0.1.0"
 dependencies = [
  "islands-reactor",
- "islands-reactor-setup",
 ]
 
 [[package]]
@@ -105,12 +103,7 @@ name = "islands-reactor-hello"
 version = "0.1.0"
 dependencies = [
  "islands-reactor",
- "islands-reactor-setup",
 ]
-
-[[package]]
-name = "islands-reactor-setup"
-version = "0.1.0"
 
 [[package]]
 name = "itoa"

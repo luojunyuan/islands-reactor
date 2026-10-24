@@ -7,9 +7,6 @@ publish = false
 [dependencies]
 islands-reactor = { path = "../../crates/islands-reactor" }
 
-[build-dependencies]
-islands-reactor-setup = { path = "../../crates/islands-reactor-setup" }
-
 [[bin]]
 name = "gallery"
 path = "src/main.rs"

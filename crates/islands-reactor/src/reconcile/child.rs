@@ -528,9 +528,9 @@ mod tests {
     /// get attached to the TextBlock — that's the crash.
     #[test]
     fn keyed_reorder_with_mixed_kinds_keeps_controls_aligned() {
-        use crate::backend::{ControlKind, Op, PropValue, RecordingBackend};
         use crate::element::{Button, Element, StackPanel, TextBlock};
-        use crate::reconciler::Reconciler;
+        use crate::ir::{ControlKind, Op, PropValue, RecordingBackend};
+        use crate::reconcile::Reconciler;
         use std::rc::Rc;
 
         fn tile(key: &'static str) -> Element {
@@ -573,7 +573,7 @@ mod tests {
             .unwrap();
 
         // Snapshot (id -> kind) from the mount-phase ops.
-        let mut kind_of: rustc_hash::FxHashMap<crate::backend::ControlId, ControlKind> =
+        let mut kind_of: rustc_hash::FxHashMap<crate::ir::ControlId, ControlKind> =
             rustc_hash::FxHashMap::default();
         for op in &reconciler.backend.ops {
             if let Op::Create { id, kind } = op {
@@ -582,7 +582,7 @@ mod tests {
         }
         // Map mount-order button ids to their key labels for the
         // post-reorder label check.
-        let mount_button_ids: Vec<crate::backend::ControlId> = reconciler
+        let mount_button_ids: Vec<crate::ir::ControlId> = reconciler
             .backend
             .ops
             .iter()
@@ -615,7 +615,7 @@ mod tests {
         for op in &reconciler.backend.ops {
             if let Op::AttachEvent {
                 id,
-                event: crate::backend::Event::Click,
+                event: crate::ir::Event::Click,
                 ..
             } = op
             {
@@ -632,12 +632,12 @@ mod tests {
 
         // 2. After reconciliation, every button control still carries
         //    the label that matches its original key.
-        let mut latest_label: rustc_hash::FxHashMap<crate::backend::ControlId, String> =
+        let mut latest_label: rustc_hash::FxHashMap<crate::ir::ControlId, String> =
             rustc_hash::FxHashMap::default();
         for op in &reconciler.backend.ops {
             if let Op::SetProp {
                 id,
-                prop: crate::backend::Prop::Content,
+                prop: crate::ir::Prop::Content,
                 value: PropValue::Str(s),
             } = op
             {

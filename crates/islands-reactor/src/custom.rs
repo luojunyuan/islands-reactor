@@ -3,7 +3,7 @@
 
 use std::any::{Any, TypeId};
 
-use crate::backend::{Backend, ControlId};
+use crate::ir::{Backend, ControlId};
 
 /// Out-of-tree widget definition managed by the reconciler via
 /// [`Element::Custom`](crate::element::Element::Custom).

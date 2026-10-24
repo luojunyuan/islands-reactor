@@ -4,14 +4,13 @@ use std::rc::Rc;
 use rustc_hash::FxHashMap;
 use windows_core::{IInspectable, Interface, Result};
 
-use crate::backend::*;
 use crate::bindings as Xaml;
 use crate::bindings_iuxc as Iuxc;
+use crate::ir::*;
 use crate::*;
 
 mod convert;
-mod generated_attach_event;
-mod generated_set_prop;
+mod generated;
 
 /// Backend that creates native `Windows.UI.Xaml` controls for XAML Islands.
 pub struct WinUIBackend {
@@ -119,7 +118,7 @@ impl WinUIBackend {
             return Ok(());
         };
 
-        if generated_set_prop::dispatch(handle, prop, value)? {
+        if generated::dispatch_set_prop(handle, prop, value)? {
             return Ok(());
         }
 
@@ -820,7 +819,7 @@ impl Backend for WinUIBackend {
             return;
         };
 
-        if let Some(revokers) = generated_attach_event::dispatch(handle, event, &handler) {
+        if let Some(revokers) = generated::dispatch_attach_event(handle, event, &handler) {
             if !revokers.is_empty() {
                 self.event_revokers
                     .borrow_mut()

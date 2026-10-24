@@ -12,25 +12,17 @@ The workspace is arranged as follows:
 
 - `reference/windows-rs`: upstream `windows-rs` submodule
 - `crates/islands-reactor`: Reactor-compatible library and native backend
-- `crates/islands-reactor-setup`: app manifest and runtime setup helper
 - `crates/tools/islands-reactor-codegen`: checked-in binding/code generator
 - `samples`: gallery and small applications
 
 ## Runtime
 
-Applications depend on `islands-reactor` normally and use
-`islands-reactor-setup` as a build dependency. App build scripts call:
+Applications depend on `islands-reactor` normally. The setup helper has been
+removed, so sample builds do not add a build dependency or build script.
 
-```rust
-fn main() {
-    islands_reactor_setup::embed_manifest();
-    println!("cargo:rerun-if-changed=build.rs");
-}
-```
-
-The setup crate stages the `Islands.UI.Xaml.Controls` DLL and PRI, embeds the
-app manifest, and creates or merges the app `resources.pri`. It is a library
-crate and does not need its own build script.
+The host can load an `Islands.UI.Xaml.Controls.pri` file placed beside the
+executable. Runtime deployment and the application manifest are managed by the
+application outside this workspace.
 
 ## Bindings
 
@@ -45,10 +37,12 @@ Bindings live under `crates/islands-reactor/src/native`:
 
 - `bindings.rs`: Windows XAML, Win32, and WinRT support bindings
 - `bindings_iuxc.rs`: private bindings for the Islands controls package
+- `winui/backend/generated`: generated property and event dispatch modules
 
 The code generator reads the workspace declarations in
 `crates/tools/islands-reactor-codegen/src/reactor_widgets.toml` and regenerates
-widget bindings and backend dispatch tables.
+widget bindings and backend dispatch tables. It does not stage runtime DLL or
+PRI assets.
 
 ## Porting Contract
 

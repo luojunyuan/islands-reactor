@@ -29,7 +29,7 @@ pub fn generate(controls: &[Control], resolver: &MetadataResolver) -> String {
     }
 
     format_generated(quote! {
-        use super::*;
+        use super::super::*;
         use crate::bindings as Xaml;
         #[allow(unused_imports)]
         use crate::bindings_iuxc as Iuxc;

@@ -16,7 +16,7 @@ impl AppWindowTitleBar {
                 core::ptr::null_mut(),
                 &mut result__,
             )
-            .and_then(|| windows_core::Type::from_abi(result__))
+            .and_then(|| windows_core::imp::Type::from_abi(result__))
         })
     }
     pub fn compose<T>(compose: T) -> windows_core::Result<AppWindowTitleBar>
@@ -34,7 +34,7 @@ impl AppWindowTitleBar {
             )
             .ok()?;
             let _ = &derived__;
-            windows_core::Type::from_abi(result__)
+            windows_core::imp::Type::from_abi(result__)
         })
     }
     fn IAppWindowTitleBarFactory<
@@ -579,7 +579,7 @@ impl ITitleBarWindowAdapter {
                 windows_core::Interface::as_raw(self),
                 &mut result__,
             )
-            .and_then(|| windows_core::Type::from_abi(result__))
+            .and_then(|| windows_core::imp::Type::from_abi(result__))
         }
     }
     pub fn SetTitleBar<P0>(&self, titlebar: P0) -> windows_core::Result<()>
@@ -727,7 +727,7 @@ impl ScrollView {
                 core::ptr::null_mut(),
                 &mut result__,
             )
-            .and_then(|| windows_core::Type::from_abi(result__))
+            .and_then(|| windows_core::imp::Type::from_abi(result__))
         })
     }
     pub fn compose<T>(compose: T) -> windows_core::Result<ScrollView>
@@ -745,7 +745,7 @@ impl ScrollView {
             )
             .ok()?;
             let _ = &derived__;
-            windows_core::Type::from_abi(result__)
+            windows_core::imp::Type::from_abi(result__)
         })
     }
     fn IScrollViewFactory<R, F: FnOnce(&IScrollViewFactory) -> windows_core::Result<R>>(
@@ -783,8 +783,8 @@ impl ScrollingScrollBarVisibility {
     pub const Visible: Self = Self(1);
     pub const Hidden: Self = Self(2);
 }
-impl windows_core::TypeKind for ScrollingScrollBarVisibility {
-    type TypeKind = windows_core::CopyType;
+impl windows_core::imp::TypeKind for ScrollingScrollBarVisibility {
+    type TypeKind = windows_core::imp::CopyType;
 }
 impl windows_core::RuntimeType for ScrollingScrollBarVisibility {
     const SIGNATURE: windows_core::imp::ConstBuffer = windows_core::imp::ConstBuffer::from_slice(
@@ -809,7 +809,7 @@ impl TitleBar {
                 core::ptr::null_mut(),
                 &mut result__,
             )
-            .and_then(|| windows_core::Type::from_abi(result__))
+            .and_then(|| windows_core::imp::Type::from_abi(result__))
         })
     }
     pub fn compose<T>(compose: T) -> windows_core::Result<TitleBar>
@@ -827,7 +827,7 @@ impl TitleBar {
             )
             .ok()?;
             let _ = &derived__;
-            windows_core::Type::from_abi(result__)
+            windows_core::imp::Type::from_abi(result__)
         })
     }
     fn ITitleBarFactory<R, F: FnOnce(&ITitleBarFactory) -> windows_core::Result<R>>(
@@ -879,7 +879,7 @@ impl TitleBarWindowAdapter {
                 core::ptr::null_mut(),
                 &mut result__,
             )
-            .and_then(|| windows_core::Type::from_abi(result__))
+            .and_then(|| windows_core::imp::Type::from_abi(result__))
         })
     }
     pub fn CreateInstance_compose<P0, T>(
@@ -902,7 +902,7 @@ impl TitleBarWindowAdapter {
             )
             .ok()?;
             let _ = &derived__;
-            windows_core::Type::from_abi(result__)
+            windows_core::imp::Type::from_abi(result__)
         })
     }
     fn ITitleBarWindowAdapterFactory<

@@ -4,7 +4,7 @@ pub mod dispatcher;
 pub(crate) mod hooks;
 pub mod host;
 pub(crate) mod template_cache;
-mod xaml_interop;
+pub(crate) mod xaml_interop;
 
 pub use backend::*;
 pub use dispatcher::*;
