@@ -6,6 +6,7 @@ members = [
     "samples/*",
 ]
 resolver = "3"
+exclude = ["reference/windows-rs"]
 
 [profile.release]
 strip = true
@@ -14,13 +15,13 @@ codegen-units = 1
 panic = "abort"
 
 [workspace.dependencies]
-windows = { git = "https://github.com/microsoft/windows-rs", rev = "62af965b827a68079605ee6461241764e4a6374b", default-features = false }
-windows-bindgen = { git = "https://github.com/microsoft/windows-rs", rev = "62af965b827a68079605ee6461241764e4a6374b", default-features = false }
-windows-collections = { git = "https://github.com/microsoft/windows-rs", rev = "62af965b827a68079605ee6461241764e4a6374b", default-features = false }
-windows-core = { git = "https://github.com/microsoft/windows-rs", rev = "62af965b827a68079605ee6461241764e4a6374b", default-features = false }
-windows-future = { git = "https://github.com/microsoft/windows-rs", rev = "62af965b827a68079605ee6461241764e4a6374b", default-features = false }
-windows-metadata = { git = "https://github.com/microsoft/windows-rs", rev = "62af965b827a68079605ee6461241764e4a6374b", default-features = false }
-windows-numerics = { git = "https://github.com/microsoft/windows-rs", rev = "62af965b827a68079605ee6461241764e4a6374b", default-features = false }
-windows-reference = { git = "https://github.com/microsoft/windows-rs", rev = "62af965b827a68079605ee6461241764e4a6374b", default-features = false }
-windows-threading = { git = "https://github.com/microsoft/windows-rs", rev = "62af965b827a68079605ee6461241764e4a6374b", default-features = false }
-windows-time = { git = "https://github.com/microsoft/windows-rs", rev = "62af965b827a68079605ee6461241764e4a6374b", default-features = false }
+windows = { version = "0.100.0", path = "reference/windows-rs/crates/libs/windows", default-features = false }
+windows-bindgen = { version = "0.100.0", path = "reference/windows-rs/crates/libs/bindgen", default-features = false }
+windows-collections = { version = "0.100.0", path = "reference/windows-rs/crates/libs/collections", default-features = false }
+windows-core = { version = "0.100.0", path = "reference/windows-rs/crates/libs/core", default-features = false }
+windows-future = { version = "0.100.0", path = "reference/windows-rs/crates/libs/future", default-features = false }
+windows-metadata = { version = "0.100.0", path = "reference/windows-rs/crates/libs/metadata", default-features = false }
+windows-numerics = { version = "0.100.0", path = "reference/windows-rs/crates/libs/numerics", default-features = false }
+windows-reference = { version = "0.100.0", path = "reference/windows-rs/crates/libs/reference", default-features = false }
+windows-threading = { version = "0.100.0", path = "reference/windows-rs/crates/libs/threading", default-features = false }
+windows-time = { version = "0.100.0", path = "reference/windows-rs/crates/libs/time", default-features = false }

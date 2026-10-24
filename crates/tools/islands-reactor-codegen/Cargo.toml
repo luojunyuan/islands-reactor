@@ -12,4 +12,3 @@ serde = { version = "1", features = ["derive"] }
 toml = "0.8"
 windows-bindgen = { workspace = true }
 windows-metadata = { workspace = true }
-xmltree = "0.11"

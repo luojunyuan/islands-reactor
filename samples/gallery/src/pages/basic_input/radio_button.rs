@@ -2,36 +2,44 @@ use crate::controls::*;
 use islands_reactor::*;
 
 pub fn radio_button_page(_: &(), cx: &mut RenderCx) -> Element {
-    let (selected, set_selected) = cx.use_state(0_i32);
-
-    let options = ["Option A", "Option B", "Option C"];
-    let label = options.get(selected as usize).copied().unwrap_or("?");
+    let (selected, set_selected) = cx.use_state(String::from("Option A"));
 
     page_content(
         "RadioButton",
         "Select one option from a group.",
         vec![
             sample_card(
-                "Basic RadioButtons",
+                "Radio button group",
                 vstack((
-                    RadioButtons::new(options)
-                        .header("Pick one")
-                        .selected_index(selected)
-                        .on_selection_changed({
-                            let set_selected = set_selected;
-                            move |i| set_selected.call(i)
+                    RadioButton::new("Option A")
+                        .group("sample-options")
+                        .checked(selected == "Option A")
+                        .on_checked({
+                            let set_selected = set_selected.clone();
+                            move || set_selected.call(String::from("Option A"))
                         }),
-                    text_block(format!("Selected: {label}")).opacity(0.6),
+                    RadioButton::new("Option B")
+                        .group("sample-options")
+                        .checked(selected == "Option B")
+                        .on_checked({
+                            let set_selected = set_selected.clone();
+                            move || set_selected.call(String::from("Option B"))
+                        }),
+                    RadioButton::new("Option C")
+                        .group("sample-options")
+                        .checked(selected == "Option C")
+                        .on_checked(move || set_selected.call(String::from("Option C"))),
+                    text_block(format!("Selected: {selected}")).opacity(0.6),
                 ))
                 .spacing(8.0),
-                r#"RadioButtons::new(["A", "B", "C"]).selected_index(idx).on_selection_changed(handler)"#,
+                r#"RadioButton::new("Option A").group("options").checked(is_selected)"#,
             ),
             sample_card(
-                "RadioButtons with Header",
-                RadioButtons::new(["Small", "Medium", "Large", "Extra Large"])
-                    .header("T-shirt size")
-                    .selected_index(1),
-                r#"RadioButtons::new(sizes).header("T-shirt size").selected_index(1)"#,
+                "Disabled option",
+                RadioButton::new("Unavailable option")
+                    .group("disabled-options")
+                    .enabled(false),
+                r#"RadioButton::new("Unavailable option").enabled(false)"#,
             ),
         ],
     )

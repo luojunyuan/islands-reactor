@@ -17,7 +17,7 @@ fn app(cx: &mut RenderCx) -> Element {
     let titlebar: Element = if custom_titlebar {
         TitleBar::new("Islands Reactor Demo")
             .subtitle("XAML Islands")
-            .content(text_block("Windows.UI.Xaml + WinUI 2").opacity(0.72))
+            .content(text_block("Windows.UI.Xaml Islands").opacity(0.72))
             .footer(
                 text_block("Demo")
                     .opacity(0.72)

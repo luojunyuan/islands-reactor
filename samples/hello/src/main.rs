@@ -3,9 +3,7 @@
 use islands_reactor::*;
 
 fn main() -> Result<()> {
-    App::new()
-        .title("Rust Islands Reactor Hello")
-        .render(app)
+    App::new().title("Rust Islands Reactor Hello").render(app)
 }
 
 fn app(_cx: &mut RenderCx) -> Element {
@@ -20,17 +18,15 @@ fn app(_cx: &mut RenderCx) -> Element {
             .wrap()
             .grid_row(0)
             .into(),
-        text_block("WinUI 2 package styles loaded.")
+        text_block("XAML Island styles loaded.")
             .wrap()
             .grid_row(1)
             .into(),
-        button("WinUI 2 Button")
+        button("XAML Button")
             .accent()
             .horizontal_alignment(HorizontalAlignment::Right)
             .grid_row(2)
             .into(),
     ];
-    border(layout)
-        .padding(16.0)
-        .into()
+    border(layout).padding(16.0).into()
 }

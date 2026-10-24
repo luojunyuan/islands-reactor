@@ -28,7 +28,7 @@ pub fn page_header(title: &str, description: &str) -> Element {
 }
 
 /// Renders a sample card matching the C# GalleryControls.SampleCard layout:
-/// title -> bordered card (sample area + source expander).
+/// title -> bordered sample and source text.
 pub fn sample_card(title: &str, sample: impl Into<Element>, source: &str) -> Element {
     let sample_area: Element = border(sample.into())
         .corner_radius(8.0)
@@ -36,13 +36,12 @@ pub fn sample_card(title: &str, sample: impl Into<Element>, source: &str) -> Ele
         .background(ThemeRef::SolidBackground)
         .into();
 
-    let source_area: Element = Expander::new(text_block(source).font_size(13.0))
-        .header("Source code")
-        .horizontal_alignment(HorizontalAlignment::Stretch)
-        .font_family("Consolas")
+    let source_area: Element = border(text_block(source).font_size(13.0).font_family("Consolas"))
+        .padding(Thickness::uniform(12.0))
+        .background(ThemeRef::SubtleFill)
         .into();
 
-    let inner: Element = vstack((sample_area, source_area)).spacing(0.0).into();
+    let inner: Element = vstack((sample_area, source_area)).spacing(8.0).into();
     let card: Element = border(inner)
         .corner_radius(8.0)
         .border_brush(ThemeRef::CardStroke)

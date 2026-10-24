@@ -1,0 +1,41 @@
+use super::*;
+
+#[derive(Clone, Default, Debug, PartialEq)]
+pub struct SplitButton {
+    pub key: Option<String>,
+    pub modifiers: Modifiers,
+    pub content: Option<String>,
+    pub is_enabled: bool,
+    pub on_click: Option<Callback<()>>,
+}
+
+impl SplitButton {
+    pub fn new(content: impl Into<String>) -> Self {
+        Self {
+            content: Some(content.into()),
+            is_enabled: true,
+            ..Default::default()
+        }
+    }
+
+    pub fn enabled(mut self, enabled: bool) -> Self {
+        self.is_enabled = enabled;
+        self
+    }
+
+    pub fn on_click<F: Fn() + 'static>(mut self, f: F) -> Self {
+        self.on_click = Some(Callback::new(move |()| f()));
+        self
+    }
+}
+
+impl Widget for SplitButton {
+    widget_header!(ControlKind::SplitButton);
+    fn bindings(&self) -> PropBindings {
+        crate::generated::split_button_bindings(self)
+    }
+}
+
+pub fn split_button(content: impl Into<String>) -> SplitButton {
+    SplitButton::new(content)
+}

@@ -1,15 +1,12 @@
 use std::{
     env, fs, io,
     path::{Path, PathBuf},
-    process::{self, Command, Stdio},
-    thread,
+    process, thread,
     time::{Duration, Instant},
 };
 
 #[allow(dead_code)]
 mod iuxc_runtime;
-#[allow(dead_code)]
-mod muxc_runtime;
 
 const APP_MANIFEST: &str = include_str!("../assets/app.manifest");
 
@@ -59,44 +56,28 @@ fn stage_runtime() {
         return;
     };
     let Some(arch) = target_arch_folder() else {
-        println!("cargo:warning=WinUI 2 runtime staging skipped: unsupported target architecture");
-        return;
-    };
-    let Some(asset_dir) = muxc_runtime::runtime_asset_dir(arch) else {
-        println!("cargo:warning=WinUI 2 runtime staging skipped: unsupported target architecture");
-        return;
-    };
-    let dll = asset_dir.join(muxc_runtime::RUNTIME_DLL);
-    let pri = asset_dir.join(muxc_runtime::RUNTIME_PRI);
-    println!("cargo:rerun-if-changed={}", dll.display());
-    println!("cargo:rerun-if-changed={}", pri.display());
-    if !dll.exists() || !pri.exists() {
         println!(
-            "cargo:warning=WinUI 2 runtime staging skipped: missing vendored assets in {}",
-            asset_dir.display()
+            "cargo:warning=Islands.UI.Xaml runtime staging skipped: unsupported target architecture"
         );
         return;
-    }
-
-    let iuxc_asset_dir = iuxc_runtime::runtime_asset_dir(arch);
-    if let Some(iuxc_asset_dir) = iuxc_asset_dir.as_ref() {
-        for file in [iuxc_runtime::CONTROLS_DLL, iuxc_runtime::CONTROLS_PRI] {
-            println!(
-                "cargo:rerun-if-changed={}",
-                iuxc_asset_dir.join(file).display()
-            );
-        }
-    }
-
+    };
+    let Some(asset_dir) = iuxc_runtime::runtime_asset_dir(arch) else {
+        println!(
+            "cargo:warning=Islands.UI.Xaml runtime staging skipped: unsupported target architecture"
+        );
+        return;
+    };
     if let Some(target_dir) = target_output_dir(&out_dir) {
-        if let Err(err) = copy_runtime_payload(&asset_dir, iuxc_asset_dir.as_deref(), &target_dir) {
+        if let Err(err) = copy_runtime_payload(&asset_dir, &target_dir) {
             println!(
-                "cargo:warning=XAML runtime payload copy failed for {}: {err}",
+                "cargo:warning=Islands.UI.Xaml runtime payload copy failed for {}: {err}",
                 target_dir.display()
             );
         }
     } else {
-        println!("cargo:warning=XAML runtime staging skipped: could not resolve target dir");
+        println!(
+            "cargo:warning=Islands.UI.Xaml runtime staging skipped: could not resolve target dir"
+        );
     }
 }
 
@@ -108,105 +89,21 @@ fn target_arch_folder() -> Option<&'static str> {
     }
 }
 
-fn copy_runtime_payload(
-    muxc_asset_dir: &Path,
-    iuxc_asset_dir: Option<&Path>,
-    target_dir: &Path,
-) -> std::io::Result<()> {
+fn copy_runtime_payload(asset_dir: &Path, target_dir: &Path) -> io::Result<()> {
     fs::create_dir_all(target_dir)?;
     let _stage_lock = RuntimeStageLock::acquire(target_dir)?;
-    let dll = muxc_asset_dir.join(muxc_runtime::RUNTIME_DLL);
-    let pri = muxc_asset_dir.join(muxc_runtime::RUNTIME_PRI);
-    copy_file_if_missing_or_stale(&dll, target_dir.join(muxc_runtime::RUNTIME_DLL))?;
-
-    let iuxc_pri = if let Some(iuxc_asset_dir) = iuxc_asset_dir {
-        let iuxc_dll = iuxc_asset_dir.join(iuxc_runtime::CONTROLS_DLL);
-        if iuxc_dll.exists() {
-            copy_file_if_missing_or_stale(&iuxc_dll, target_dir.join(iuxc_runtime::CONTROLS_DLL))?;
+    for name in [iuxc_runtime::CONTROLS_DLL, iuxc_runtime::CONTROLS_PRI] {
+        let source = asset_dir.join(name);
+        println!("cargo:rerun-if-changed={}", source.display());
+        if source.exists() {
+            copy_file_if_missing_or_stale(&source, target_dir.join(name))?;
         } else {
             println!(
                 "cargo:warning=Islands.UI.Xaml runtime asset missing: {}",
-                iuxc_dll.display()
+                source.display()
             );
         }
-
-        let iuxc_pri = iuxc_asset_dir.join(iuxc_runtime::CONTROLS_PRI);
-        if iuxc_pri.exists() {
-            Some(iuxc_pri)
-        } else {
-            println!(
-                "cargo:warning=Islands.UI.Xaml runtime asset missing: {}",
-                iuxc_pri.display()
-            );
-            None
-        }
-    } else {
-        None
-    };
-
-    if target_dir.join(muxc_runtime::RUNTIME_PRI).exists() {
-        fs::remove_file(target_dir.join(muxc_runtime::RUNTIME_PRI))?;
     }
-    ensure_app_resources_pri(target_dir, &pri, iuxc_pri.as_deref())
-}
-
-fn ensure_app_resources_pri(
-    target_dir: &Path,
-    mux_pri: &Path,
-    iuxc_pri: Option<&Path>,
-) -> std::io::Result<()> {
-    let resources_pri = target_dir.join("resources.pri");
-    if app_resources_pri_is_current(&resources_pri, mux_pri, iuxc_pri)? {
-        return Ok(());
-    }
-
-    let Some(makepri) = find_makepri() else {
-        println!("cargo:warning=XAML app PRI generation skipped: could not find makepri.exe");
-        copy_file(mux_pri, target_dir.join(muxc_runtime::RUNTIME_PRI))?;
-        if let Some(iuxc_pri) = iuxc_pri {
-            copy_file(iuxc_pri, target_dir.join(iuxc_runtime::CONTROLS_PRI))?;
-        }
-        return Ok(());
-    };
-
-    let work = target_dir.join("islands-reactor-pri");
-    let input = work.join("input");
-    recreate_dir(&work)?;
-    fs::create_dir_all(&input)?;
-
-    let config = work.join("priconfig.xml");
-    fs::write(&config, APP_PRI_CONFIG)?;
-
-    let output = work.join("resources.pri");
-    copy_file(mux_pri, input.join(muxc_runtime::RUNTIME_PRI))?;
-    if let Some(iuxc_pri) = iuxc_pri {
-        copy_file(iuxc_pri, input.join(iuxc_runtime::CONTROLS_PRI))?;
-    }
-
-    let status = Command::new(&makepri)
-        .current_dir(&work)
-        .arg("new")
-        .arg("/pr")
-        .arg(&input)
-        .arg("/of")
-        .arg(&output)
-        .arg("/cf")
-        .arg(&config)
-        .arg("/o")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()?;
-    if !status.success() {
-        println!(
-            "cargo:warning=XAML app PRI generation failed with {status}: {}",
-            makepri.display()
-        );
-        return Ok(());
-    }
-
-    copy_file(output, resources_pri)?;
-    let _ = fs::remove_dir_all(&work);
-    Ok(())
 }
 
 struct RuntimeStageLock {
@@ -247,134 +144,6 @@ impl Drop for RuntimeStageLock {
     fn drop(&mut self) {
         let _ = fs::remove_file(&self.path);
     }
-}
-
-fn app_resources_pri_is_current(
-    resources_pri: &Path,
-    mux_pri: &Path,
-    iuxc_pri: Option<&Path>,
-) -> io::Result<bool> {
-    let resources = match fs::metadata(resources_pri) {
-        Ok(metadata) => metadata,
-        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(false),
-        Err(err) => return Err(err),
-    };
-    if resources.len() == 0 {
-        return Ok(false);
-    }
-
-    let Ok(resources_modified) = resources.modified() else {
-        return Ok(false);
-    };
-    let setup_src = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("src")
-        .join("lib.rs");
-    let mut inputs = vec![mux_pri, setup_src.as_path()];
-    if let Some(iuxc_pri) = iuxc_pri {
-        inputs.push(iuxc_pri);
-    }
-    for input in inputs {
-        let Ok(input_modified) = fs::metadata(input).and_then(|metadata| metadata.modified())
-        else {
-            return Ok(false);
-        };
-        if resources_modified < input_modified {
-            return Ok(false);
-        }
-    }
-    Ok(true)
-}
-
-const APP_PRI_CONFIG: &str = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<resources targetOsVersion="10.0.0" majorVersion="1">
-  <packaging>
-    <autoResourcePackage qualifier="Scale" />
-    <autoResourcePackage qualifier="DXFeatureLevel" />
-  </packaging>
-  <index root="\" startIndexAt="\">
-    <default>
-      <qualifier name="Language" value="en-US" />
-      <qualifier name="Contrast" value="standard" />
-      <qualifier name="Scale" value="200" />
-      <qualifier name="HomeRegion" value="001" />
-      <qualifier name="TargetSize" value="256" />
-      <qualifier name="LayoutDirection" value="LTR" />
-      <qualifier name="DXFeatureLevel" value="DX9" />
-      <qualifier name="Configuration" value="" />
-      <qualifier name="AlternateForm" value="" />
-      <qualifier name="Platform" value="UAP" />
-    </default>
-    <indexer-config type="folder" foldernameAsQualifier="true" filenameAsQualifier="true" qualifierDelimiter="." />
-    <indexer-config type="resw" convertDotsToSlashes="true" initialPath="" />
-    <indexer-config type="resjson" initialPath="" />
-    <indexer-config type="PRI" />
-  </index>
-</resources>
-"#;
-
-fn recreate_dir(path: &Path) -> std::io::Result<()> {
-    if path.exists() {
-        fs::remove_dir_all(path)?;
-    }
-    fs::create_dir_all(path)
-}
-
-fn find_makepri() -> Option<PathBuf> {
-    if let Ok(path) = env::var("MAKEPRI_EXE") {
-        let path = PathBuf::from(path);
-        if path.exists() {
-            return Some(path);
-        }
-    }
-
-    let user_profile = env::var("USERPROFILE").ok()?;
-    let buildtools = PathBuf::from(&user_profile)
-        .join(".nuget")
-        .join("packages")
-        .join("microsoft.windows.sdk.buildtools");
-    if let Some(path) = find_makepri_under(&buildtools) {
-        return Some(path);
-    }
-
-    let kits = env::var("ProgramFiles(x86)")
-        .ok()
-        .map(PathBuf::from)?
-        .join("Windows Kits")
-        .join("10")
-        .join("bin");
-    find_makepri_under(&kits)
-}
-
-fn find_makepri_under(root: &Path) -> Option<PathBuf> {
-    if !root.exists() {
-        return None;
-    }
-    let mut candidates = Vec::new();
-    collect_makepri(root, &mut candidates).ok()?;
-    candidates.sort();
-    candidates.pop()
-}
-
-fn collect_makepri(root: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
-    for entry in fs::read_dir(root)? {
-        let entry = entry?;
-        let path = entry.path();
-        if entry.file_type()?.is_dir() {
-            collect_makepri(&path, out)?;
-        } else if path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .is_some_and(|name| name.eq_ignore_ascii_case("makepri.exe"))
-            && path
-                .parent()
-                .and_then(|parent| parent.file_name())
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| name.eq_ignore_ascii_case("x64"))
-        {
-            out.push(path);
-        }
-    }
-    Ok(())
 }
 
 fn copy_file(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result<()> {

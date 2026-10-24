@@ -1,11 +1,9 @@
 use std::{
     env, fs,
-    io::{BufReader, BufWriter, Write},
+    io::Write,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
-
-use xmltree::{Element, EmitterConfig, XMLNode};
 
 mod gen_attach;
 mod gen_bindings;
@@ -15,7 +13,6 @@ mod metadata;
 mod schema;
 mod toml_parser;
 
-const WINUI2_VERSION: &str = "2.8.7";
 const ISLANDS_UI_XAML_VERSION: &str = "0.1.0-local";
 const REACTOR_WIDGETS_TOML: &str = include_str!("reactor_widgets.toml");
 
@@ -238,60 +235,6 @@ const XAML_MINIMAL_FILTERS: &[&str] = &[
     "Windows.Win32.System.WinRT.Xaml.IDesktopWindowXamlSourceNative::{AttachToWindow, get_WindowHandle}",
 ];
 
-const MUXC_MINIMAL_FILTERS: &[&str] = &[
-    "Microsoft.UI.Xaml.Controls.BreadcrumbBar::{CreateInstance}",
-    "Microsoft.UI.Xaml.Controls.BreadcrumbBarItem",
-    "Microsoft.UI.Xaml.Controls.BreadcrumbBarItemClickedEventArgs",
-    "Microsoft.UI.Xaml.Controls.IBreadcrumbBar::{put_ItemsSource, add_ItemClicked}",
-    "Microsoft.UI.Xaml.Controls.IBreadcrumbBarItemClickedEventArgs::{get_Index}",
-    "Microsoft.UI.Xaml.Controls.DropDownButton::{CreateInstance}",
-    "Microsoft.UI.Xaml.Controls.Expander::{CreateInstance}",
-    "Microsoft.UI.Xaml.Controls.ExpanderCollapsedEventArgs",
-    "Microsoft.UI.Xaml.Controls.ExpanderExpandingEventArgs",
-    "Microsoft.UI.Xaml.Controls.IExpander::{put_Header, put_IsExpanded, add_Expanding, add_Collapsed}",
-    "Microsoft.UI.Xaml.Controls.InfoBadge::{CreateInstance}",
-    "Microsoft.UI.Xaml.Controls.IInfoBadge::{put_Value}",
-    "Microsoft.UI.Xaml.Controls.InfoBar::{CreateInstance}",
-    "Microsoft.UI.Xaml.Controls.InfoBarClosedEventArgs",
-    "Microsoft.UI.Xaml.Controls.InfoBarSeverity",
-    "Microsoft.UI.Xaml.Controls.IInfoBar::{put_Title, put_Message, put_Severity, put_IsOpen, put_IsClosable, add_Closed}",
-    "Microsoft.UI.Xaml.Controls.IconSource",
-    "Microsoft.UI.Xaml.Controls.NavigationView::{CreateInstance}",
-    "Microsoft.UI.Xaml.Controls.NavigationViewBackButtonVisible",
-    "Microsoft.UI.Xaml.Controls.NavigationViewBackRequestedEventArgs",
-    "Microsoft.UI.Xaml.Controls.INavigationView::{get_MenuItems, put_SelectedItem, put_Header, put_IsPaneOpen, put_IsSettingsVisible, put_IsPaneToggleButtonVisible, add_SelectionChanged}",
-    "Microsoft.UI.Xaml.Controls.INavigationView2::{put_PaneDisplayMode, put_IsBackButtonVisible, put_IsBackEnabled, put_PaneTitle, add_BackRequested}",
-    "Microsoft.UI.Xaml.Controls.INavigationViewItem::{put_Icon}",
-    "Microsoft.UI.Xaml.Controls.INavigationViewItem2::{get_MenuItems}",
-    "Microsoft.UI.Xaml.Controls.INavigationViewSelectionChangedEventArgs::{get_SelectedItem}",
-    "Microsoft.UI.Xaml.Controls.NavigationViewItem::{CreateInstance}",
-    "Microsoft.UI.Xaml.Controls.NavigationViewItemBase",
-    "Microsoft.UI.Xaml.Controls.NavigationViewItemHeader::{CreateInstance}",
-    "Microsoft.UI.Xaml.Controls.NavigationViewPaneDisplayMode",
-    "Microsoft.UI.Xaml.Controls.NavigationViewSelectionChangedEventArgs",
-    "Microsoft.UI.Xaml.Controls.NumberBox::{CreateInstance}",
-    "Microsoft.UI.Xaml.Controls.NumberBoxValueChangedEventArgs",
-    "Microsoft.UI.Xaml.Controls.INumberBox::{put_Header, put_Value, put_Minimum, put_Maximum, add_ValueChanged}",
-    "Microsoft.UI.Xaml.Controls.INumberBoxValueChangedEventArgs::{get_NewValue}",
-    "Microsoft.UI.Xaml.Controls.RadioButtons::{CreateInstance}",
-    "Microsoft.UI.Xaml.Controls.IRadioButtons::{put_Header, get_Items, put_SelectedIndex, get_SelectedIndex, put_MaxColumns, add_SelectionChanged}",
-    "Microsoft.UI.Xaml.Controls.SplitButton::{CreateInstance}",
-    "Microsoft.UI.Xaml.Controls.SplitButtonClickEventArgs",
-    "Microsoft.UI.Xaml.Controls.ISplitButton::{add_Click}",
-    "Microsoft.UI.Xaml.Controls.TabView::{CreateInstance}",
-    "Microsoft.UI.Xaml.Controls.ITabView::{get_TabItems, put_SelectedIndex, get_SelectedIndex, put_CanReorderTabs, put_IsAddTabButtonVisible, add_SelectionChanged, add_TabCloseRequested, add_AddTabButtonClick}",
-    "Microsoft.UI.Xaml.Controls.TabViewItem::{CreateInstance}",
-    "Microsoft.UI.Xaml.Controls.TabViewTabCloseRequestedEventArgs",
-    "Microsoft.UI.Xaml.Controls.ITabViewItem::{put_Header, put_IsClosable}",
-    "Microsoft.UI.Xaml.Controls.ITabViewTabCloseRequestedEventArgs::{get_Tab}",
-    "Microsoft.UI.Xaml.Controls.TeachingTip::{CreateInstance}",
-    "Microsoft.UI.Xaml.Controls.TeachingTipClosedEventArgs",
-    "Microsoft.UI.Xaml.Controls.TeachingTipPlacementMode",
-    "Microsoft.UI.Xaml.Controls.ITeachingTip::{put_Title, put_Subtitle, put_IsOpen, put_IsLightDismissEnabled, put_PreferredPlacement, put_ActionButtonContent, put_CloseButtonContent, add_Closed, add_ActionButtonClick}",
-    "Microsoft.UI.Xaml.Controls.XamlControlsResources::{CreateInstance}",
-    "Microsoft.UI.Xaml.XamlTypeInfo.XamlControlsXamlMetaDataProvider::{CreateInstance}",
-];
-
 const IUXC_MINIMAL_FILTERS: &[&str] = &[
     "Islands.UI.Xaml.Controls.ScrollView::{CreateInstance}",
     "Islands.UI.Xaml.Controls.IScrollView::{put_Content, put_HorizontalScrollBarVisibility, put_VerticalScrollBarVisibility}",
@@ -329,22 +272,18 @@ fn main() {
 
 fn generate_bindings() -> Result<(), String> {
     let root = workspace_root()?;
-    let muxc_package = winui2_package_dir()?;
-    let muxc_winmd = extract_muxc_metadata_winmd(&root, &muxc_package)?;
     let iuxc_package = islands_ui_xaml_package_dir(&root)?;
     let iuxc_winmd = iuxc_native_asset(&iuxc_package, "x64", "Islands.UI.Xaml.Controls.winmd")?;
 
     generate_xaml_bindings(&root)?;
-    generate_muxc_module(&root, &muxc_winmd)?;
-    generate_iuxc_module(&root, &iuxc_winmd, &muxc_winmd)?;
-    generate_reactor_code(&root, &muxc_winmd, &iuxc_winmd)?;
-    vendor_muxc_runtime(&root, &muxc_package)?;
+    generate_iuxc_module(&root, &iuxc_winmd)?;
+    generate_reactor_code(&root, &iuxc_winmd)?;
     vendor_iuxc_runtime(&root, &iuxc_package)?;
     Ok(())
 }
 
 fn generate_xaml_bindings(root: &Path) -> Result<(), String> {
-    let out = root.join("crates/islands-reactor/src/bindings.rs");
+    let out = root.join("crates/islands-reactor/src/native/bindings.rs");
     let temp = root
         .join("target")
         .join("islands-reactor-codegen")
@@ -390,63 +329,17 @@ fn generate_xaml_bindings(root: &Path) -> Result<(), String> {
     copy_if_changed(&temp, &out)
 }
 
-fn generate_muxc_module(root: &Path, winmd: &Path) -> Result<(), String> {
-    let out = root.join("crates/islands-reactor/src/bindings_muxc.rs");
-    let temp = root
-        .join("target")
-        .join("islands-reactor-codegen")
-        .join("bindings_muxc.rs");
-    let temp_arg = path_arg(&temp);
-    let winmd = path_arg(winmd);
-    let mut args = vec![
-        "--in",
-        "default",
-        &winmd,
-        "--out",
-        &temp_arg,
-        "--minimal",
-        "--flat",
-        "--filter",
-    ];
-    args.extend(MUXC_MINIMAL_FILTERS);
-    args.extend([
-        "--reference",
-        "crate::bindings,flat,Windows.UI",
-        "--reference",
-        "crate::bindings,flat,Windows.UI.Xaml",
-        "--reference",
-        "crate::bindings,flat,Windows.UI.Input",
-        "--reference",
-        "crate::bindings,flat,Windows.UI.Text",
-        "--reference",
-        "windows,skip-root,Windows.ApplicationModel.Resources.Core",
-        "--reference",
-        "windows_collections,flat,Windows.Foundation.Collections",
-        "--reference",
-        "windows,skip-root,Windows.Foundation.Numerics.Quaternion",
-        "--reference",
-        "windows_numerics,flat,Windows.Foundation.Numerics",
-        "--reference",
-        "windows,skip-root,Windows.Foundation",
-    ]);
-    run_bindgen(args)?;
-    patch_muxc_module(&temp)?;
-    copy_if_changed(&temp, &out)
-}
-
-fn generate_iuxc_module(root: &Path, iuxc_winmd: &Path, muxc_winmd: &Path) -> Result<(), String> {
-    let out = root.join("crates/islands-reactor/src/bindings_iuxc.rs");
+fn generate_iuxc_module(root: &Path, iuxc_winmd: &Path) -> Result<(), String> {
+    let out = root.join("crates/islands-reactor/src/native/bindings_iuxc.rs");
     let temp = root
         .join("target")
         .join("islands-reactor-codegen")
         .join("bindings_iuxc.rs");
     let temp_arg = path_arg(&temp);
     let iuxc_winmd = path_arg(iuxc_winmd);
-    let muxc_winmd = path_arg(muxc_winmd);
     let mut args = vec![
         "--in",
         "default",
-        &muxc_winmd,
         &iuxc_winmd,
         "--out",
         &temp_arg,
@@ -467,8 +360,6 @@ fn generate_iuxc_module(root: &Path, iuxc_winmd: &Path, muxc_winmd: &Path) -> Re
         "--reference",
         "crate::bindings,flat,Windows.UI.Text",
         "--reference",
-        "crate::bindings_muxc,flat,Microsoft.UI.Xaml.Controls",
-        "--reference",
         "windows,skip-root,Windows.Foundation",
         "--reference",
         "windows_collections,flat,Windows.Foundation.Collections",
@@ -480,12 +371,12 @@ fn generate_iuxc_module(root: &Path, iuxc_winmd: &Path, muxc_winmd: &Path) -> Re
         "windows_numerics,flat,Windows.Foundation.Numerics",
     ]);
     run_bindgen(args)?;
-    patch_muxc_module(&temp)?;
+    patch_iuxc_bindings(&temp)?;
     copy_if_changed(&temp, &out)
 }
 
-fn generate_reactor_code(root: &Path, muxc_winmd: &Path, iuxc_winmd: &Path) -> Result<(), String> {
-    let metadata_dir = stage_reactor_metadata(root, muxc_winmd, iuxc_winmd)?;
+fn generate_reactor_code(root: &Path, iuxc_winmd: &Path) -> Result<(), String> {
+    let metadata_dir = stage_reactor_metadata(root, iuxc_winmd)?;
     let resolver = metadata::MetadataResolver::load(&metadata_dir);
     let mut controls = toml_parser::parse(REACTOR_WIDGETS_TOML, &resolver);
 
@@ -501,24 +392,20 @@ fn generate_reactor_code(root: &Path, muxc_winmd: &Path, iuxc_winmd: &Path) -> R
     }
 
     write_generated_rs(
-        &root.join("crates/islands-reactor/src/core/generated_bindings.rs"),
+        &root.join("crates/islands-reactor/src/generated.rs"),
         &gen_bindings::generate(&controls),
     )?;
     write_generated_rs(
-        &root.join("crates/islands-reactor/src/winui/backend/generated_set_prop.rs"),
+        &root.join("crates/islands-reactor/src/native/winui/backend/generated_set_prop.rs"),
         &gen_set_prop::generate(&controls, &resolver),
     )?;
     write_generated_rs(
-        &root.join("crates/islands-reactor/src/winui/backend/generated_attach_event.rs"),
+        &root.join("crates/islands-reactor/src/native/winui/backend/generated_attach_event.rs"),
         &gen_attach::generate(&controls, &resolver),
     )
 }
 
-fn stage_reactor_metadata(
-    root: &Path,
-    muxc_winmd: &Path,
-    iuxc_winmd: &Path,
-) -> Result<PathBuf, String> {
+fn stage_reactor_metadata(root: &Path, iuxc_winmd: &Path) -> Result<PathBuf, String> {
     let work = root
         .join("target")
         .join("islands-reactor-codegen")
@@ -527,7 +414,6 @@ fn stage_reactor_metadata(
 
     let windows_winmd = locate_windows_bindgen_default_winmd(root)?;
     copy_file(&windows_winmd, &work.join("Windows.winmd"))?;
-    copy_file(muxc_winmd, &work.join("Microsoft.UI.Xaml.winmd"))?;
     copy_file(iuxc_winmd, &work.join("Islands.UI.Xaml.Controls.winmd"))?;
     Ok(work)
 }
@@ -567,38 +453,6 @@ fn run_bindgen(args: Vec<&str>) -> Result<(), String> {
     Ok(())
 }
 
-fn vendor_muxc_runtime(root: &Path, package: &Path) -> Result<(), String> {
-    for arch in ["x64", "arm64"] {
-        let appx = muxc_appx(package, arch);
-        require_file(&appx, &format!("WinUI 2 {arch} AppX"))?;
-
-        let work = root
-            .join("target")
-            .join("islands-reactor-codegen")
-            .join(format!("muxc-{arch}"));
-        recreate_dir(&work)?;
-        expand_appx(&appx, &work)?;
-
-        let runtime = root.join("crates/islands-reactor-setup/runtime").join(arch);
-        fs::create_dir_all(&runtime).map_err(|err| {
-            format!(
-                "failed to create runtime asset dir {}: {err}",
-                runtime.display()
-            )
-        })?;
-        copy_file(
-            &work.join("Microsoft.UI.Xaml.dll"),
-            &runtime.join("Microsoft.UI.Xaml.dll"),
-        )?;
-        trim_mux_pri(
-            &work.join("resources.pri"),
-            &runtime.join("Microsoft.UI.Xaml.pri"),
-        )?;
-    }
-
-    write_runtime_rs(&root.join("crates/islands-reactor-setup/src/muxc_runtime.rs"))
-}
-
 fn vendor_iuxc_runtime(root: &Path, package: &Path) -> Result<(), String> {
     for arch in ["x64", "arm64"] {
         let runtime = root.join("crates/islands-reactor-setup/runtime").join(arch);
@@ -616,151 +470,6 @@ fn vendor_iuxc_runtime(root: &Path, package: &Path) -> Result<(), String> {
     }
 
     write_iuxc_runtime_rs(&root.join("crates/islands-reactor-setup/src/iuxc_runtime.rs"))
-}
-
-fn trim_mux_pri(input: &Path, output: &Path) -> Result<(), String> {
-    require_file(input, "WinUI 2 resources.pri")?;
-    let makepri = find_makepri().ok_or_else(|| {
-        "cannot find makepri.exe; install Microsoft.Windows.SDK.BuildTools or set MAKEPRI_EXE"
-            .to_string()
-    })?;
-
-    let work = output
-        .parent()
-        .ok_or_else(|| format!("output PRI has no parent: {}", output.display()))?
-        .join("_trim-pri");
-    recreate_dir(&work)?;
-    let input_name = work.join("resources.pri");
-    copy_file(input, &input_name)?;
-
-    run_command(
-        Command::new(&makepri)
-            .current_dir(&work)
-            .arg("dump")
-            .arg("/if")
-            .arg(&input_name)
-            .arg("/dt")
-            .arg("detailed")
-            .arg("/o"),
-        "makepri dump",
-    )?;
-
-    let dump = work.join("resources.pri.xml");
-    require_file(&dump, "makepri dump XML")?;
-    let trimmed_dump = work.join("resources.trimmed.pri.xml");
-    trim_xbf_nodes(&dump, &trimmed_dump)?;
-
-    let config = work.join("mux_priconfig.xml");
-    fs::write(
-        &config,
-        MUX_PRI_CONFIG.replace("resources.pri.xml", "resources.trimmed.pri.xml"),
-    )
-    .map_err(|err| format!("failed to write {}: {err}", config.display()))?;
-
-    let out_name = output
-        .file_name()
-        .ok_or_else(|| format!("output PRI has no file name: {}", output.display()))?;
-    run_command(
-        Command::new(&makepri)
-            .current_dir(&work)
-            .arg("new")
-            .arg("/pr")
-            .arg(".")
-            .arg("/of")
-            .arg(out_name)
-            .arg("/cf")
-            .arg("mux_priconfig.xml")
-            .arg("/in")
-            .arg("Microsoft.UI.Xaml.2.8")
-            .arg("/o"),
-        "makepri new",
-    )?;
-
-    copy_file(&work.join(out_name), output)?;
-    let _ = fs::remove_dir_all(&work);
-    Ok(())
-}
-
-fn trim_xbf_nodes(input: &Path, output: &Path) -> Result<(), String> {
-    let mut xml = {
-        let file = fs::File::open(input)
-            .map_err(|err| format!("failed to open {}: {err}", input.display()))?;
-        Element::parse(BufReader::new(file))
-            .map_err(|err| format!("failed to parse {}: {err}", input.display()))?
-    };
-    trim_xbf_element(&mut xml);
-    let file = fs::File::create(output)
-        .map_err(|err| format!("failed to write {}: {err}", output.display()))?;
-    xml.write_with_config(
-        BufWriter::new(file),
-        EmitterConfig::new()
-            .perform_indent(true)
-            .write_document_declaration(true),
-    )
-    .map_err(|err| format!("failed to save {}: {err}", output.display()))
-}
-
-fn trim_xbf_element(element: &mut Element) {
-    if local_name(&element.name) == "NamedResource"
-        && let Some(name) = element.attributes.get("name")
-        && name.ends_with(".xbf")
-        && should_strip_xbf(name)
-    {
-        set_candidate_base64(element, "IA==");
-    }
-
-    for child in &mut element.children {
-        if let XMLNode::Element(element) = child {
-            trim_xbf_element(element);
-        }
-    }
-}
-
-fn should_strip_xbf(name: &str) -> bool {
-    if name.contains("scale-100") {
-        return true;
-    }
-    for key in ["compact", "Compact", "v1", "rs2", "rs3", "rs4", "rs5"] {
-        if name.contains(key) {
-            return true;
-        }
-    }
-    !(name.contains("19h1") || name.contains("21h1"))
-}
-
-fn set_candidate_base64(element: &mut Element, value: &str) {
-    for child in &mut element.children {
-        let XMLNode::Element(element) = child else {
-            continue;
-        };
-        if local_name(&element.name) == "Base64Value" {
-            element.children.clear();
-            element.children.push(XMLNode::Text(value.to_string()));
-        } else {
-            set_candidate_base64(element, value);
-        }
-    }
-}
-
-fn write_runtime_rs(path: &Path) -> Result<(), String> {
-    let mut code = String::new();
-    code.push_str("use std::path::{Path, PathBuf};\n\n");
-    code.push_str(&format!(
-        "pub const WINUI2_VERSION: &str = {:?};\n",
-        WINUI2_VERSION
-    ));
-    code.push_str("pub const RUNTIME_DLL: &str = \"Microsoft.UI.Xaml.dll\";\n");
-    code.push_str("pub const RUNTIME_PRI: &str = \"Microsoft.UI.Xaml.pri\";\n\n");
-    code.push_str("pub fn runtime_asset_dir(arch: &str) -> Option<PathBuf> {\n");
-    code.push_str("    match arch {\n");
-    code.push_str(
-        "        \"x64\" | \"arm64\" => Some(Path::new(env!(\"CARGO_MANIFEST_DIR\")).join(\"runtime\").join(arch)),\n",
-    );
-    code.push_str("        _ => None,\n");
-    code.push_str("    }\n");
-    code.push_str("}\n");
-
-    write_if_changed(path, &rustfmt(&code))
 }
 
 fn write_iuxc_runtime_rs(path: &Path) -> Result<(), String> {
@@ -826,35 +535,6 @@ fn workspace_root() -> Result<PathBuf, String> {
         .and_then(Path::parent)
         .map(Path::to_path_buf)
         .ok_or_else(|| format!("could not resolve workspace root from {}", dir.display()))
-}
-
-fn winui2_package_dir() -> Result<PathBuf, String> {
-    if let Ok(root) = env::var("WINUI2_NUGET_DIR") {
-        let root = PathBuf::from(root);
-        if root.exists() {
-            return Ok(root);
-        }
-        return Err(format!(
-            "WINUI2_NUGET_DIR points to a missing directory: {}",
-            root.display()
-        ));
-    }
-
-    let root = if let Ok(root) = env::var("NUGET_PACKAGES") {
-        PathBuf::from(root)
-    } else {
-        let profile = env::var("USERPROFILE").map_err(|_| "USERPROFILE is not set".to_string())?;
-        PathBuf::from(profile).join(".nuget").join("packages")
-    };
-    let package = root.join("microsoft.ui.xaml").join(WINUI2_VERSION);
-    if package.exists() {
-        Ok(package)
-    } else {
-        Err(format!(
-            "missing NuGet package microsoft.ui.xaml/{WINUI2_VERSION}; expected {}",
-            package.display()
-        ))
-    }
 }
 
 fn islands_ui_xaml_package_dir(root: &Path) -> Result<PathBuf, String> {
@@ -934,47 +614,6 @@ fn iuxc_rid(arch: &str) -> Result<&'static str, String> {
     }
 }
 
-fn extract_muxc_metadata_winmd(root: &Path, package: &Path) -> Result<PathBuf, String> {
-    let appx = muxc_appx(package, "x64");
-    require_file(&appx, "WinUI 2 x64 AppX")?;
-
-    let work = root
-        .join("target")
-        .join("islands-reactor-codegen")
-        .join("muxc-metadata-x64");
-    recreate_dir(&work)?;
-    expand_appx(&appx, &work)?;
-
-    let winmd = work.join("Microsoft.UI.Xaml.winmd");
-    require_file(&winmd, "WinUI 2 AppX winmd")?;
-    Ok(winmd)
-}
-
-fn muxc_appx(package: &Path, arch: &str) -> PathBuf {
-    package
-        .join("tools")
-        .join("AppX")
-        .join(arch)
-        .join("Release")
-        .join("Microsoft.UI.Xaml.2.8.appx")
-}
-
-fn expand_appx(appx: &Path, stage: &Path) -> Result<(), String> {
-    run_command(
-        Command::new("powershell")
-            .arg("-NoProfile")
-            .arg("-ExecutionPolicy")
-            .arg("Bypass")
-            .arg("-Command")
-            .arg(format!(
-                "Expand-Archive -LiteralPath '{}' -DestinationPath '{}' -Force",
-                ps_escape(appx),
-                ps_escape(stage)
-            )),
-        "Expand-Archive",
-    )
-}
-
 fn expand_nupkg(nupkg: &Path, stage: &Path) -> Result<(), String> {
     run_command(
         Command::new("powershell")
@@ -1031,7 +670,7 @@ fn patch_xaml_bindings(path: &Path) -> Result<(), String> {
     fs::write(path, code).map_err(|err| format!("failed to write {}: {err}", path.display()))
 }
 
-fn patch_muxc_module(path: &Path) -> Result<(), String> {
+fn patch_iuxc_bindings(path: &Path) -> Result<(), String> {
     let mut code = fs::read_to_string(path)
         .map_err(|err| format!("failed to read {}: {err}", path.display()))?;
     code = code.replace("xaml_bindings::", "crate::bindings::");
@@ -1149,94 +788,10 @@ fn run_command(command: &mut Command, label: &str) -> Result<(), String> {
     }
 }
 
-fn find_makepri() -> Option<PathBuf> {
-    if let Ok(path) = env::var("MAKEPRI_EXE") {
-        let path = PathBuf::from(path);
-        if path.exists() {
-            return Some(path);
-        }
-    }
-    let profile = env::var("USERPROFILE").ok()?;
-    let build_tools = PathBuf::from(&profile)
-        .join(".nuget")
-        .join("packages")
-        .join("microsoft.windows.sdk.buildtools");
-    if let Some(path) = find_makepri_under(&build_tools) {
-        return Some(path);
-    }
-    let kits = env::var("ProgramFiles(x86)")
-        .ok()
-        .map(PathBuf::from)?
-        .join("Windows Kits")
-        .join("10")
-        .join("bin");
-    find_makepri_under(&kits)
-}
-
-fn find_makepri_under(root: &Path) -> Option<PathBuf> {
-    if !root.exists() {
-        return None;
-    }
-    let mut candidates = Vec::new();
-    collect_makepri(root, &mut candidates).ok()?;
-    candidates.sort();
-    candidates.pop()
-}
-
-fn collect_makepri(root: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
-    for entry in fs::read_dir(root)? {
-        let entry = entry?;
-        let path = entry.path();
-        if entry.file_type()?.is_dir() {
-            collect_makepri(&path, out)?;
-        } else if path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .is_some_and(|name| name.eq_ignore_ascii_case("makepri.exe"))
-            && path
-                .parent()
-                .and_then(|parent| parent.file_name())
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| name.eq_ignore_ascii_case("x64"))
-        {
-            out.push(path);
-        }
-    }
-    Ok(())
-}
-
 fn path_arg(path: &Path) -> String {
     path.display().to_string()
-}
-
-fn local_name(name: &str) -> &str {
-    name.rsplit_once(':').map_or(name, |(_, name)| name)
 }
 
 fn ps_escape(path: &Path) -> String {
     path.display().to_string().replace('\'', "''")
 }
-
-const MUX_PRI_CONFIG: &str = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<resources targetOsVersion="10.0.0" majorVersion="1">
-  <packaging>
-    <autoResourcePackage qualifier="Scale" />
-    <autoResourcePackage qualifier="DXFeatureLevel" />
-  </packaging>
-  <index startIndexAt="resources.pri.xml" root="">
-    <default>
-      <qualifier name="Language" value="en-US" />
-      <qualifier name="Contrast" value="standard" />
-      <qualifier name="Scale" value="200" />
-      <qualifier name="HomeRegion" value="001" />
-      <qualifier name="TargetSize" value="256" />
-      <qualifier name="LayoutDirection" value="LTR" />
-      <qualifier name="DXFeatureLevel" value="DX9" />
-      <qualifier name="Configuration" value="" />
-      <qualifier name="AlternateForm" value="" />
-      <qualifier name="Platform" value="UAP" />
-    </default>
-    <indexer-config type="priinfo" emitStrings="true" emitPaths="true" emitEmbeddedData="true" />
-  </index>
-</resources>
-"#;

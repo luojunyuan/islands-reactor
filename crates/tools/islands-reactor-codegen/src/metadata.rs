@@ -95,9 +95,7 @@ impl MetadataResolver {
 
         // Walk all types in the index, collecting method→interface for XAML classes.
         for (namespace, name, typedef) in index.iter() {
-            if namespace.starts_with("Microsoft.UI.Xaml")
-                || namespace.starts_with("Windows.UI.Xaml")
-                || namespace.starts_with("Islands.UI.Xaml")
+            if namespace.starts_with("Windows.UI.Xaml") || namespace.starts_with("Islands.UI.Xaml")
             {
                 Self::collect_methods_for_class(&index, name, &typedef, &mut lookup);
             }
@@ -223,8 +221,6 @@ impl MetadataResolver {
                     };
                     if iface_ns.starts_with("Islands.UI.Xaml") {
                         lookup.insert(key, method_ref);
-                    } else if iface_ns.starts_with("Microsoft.UI.Xaml") {
-                        lookup.insert(key, method_ref);
                     } else {
                         lookup.entry(key).or_insert(method_ref);
                     }
@@ -262,12 +258,6 @@ impl MetadataResolver {
                     .interface
                     .namespace
                     .starts_with("Islands.UI.Xaml")
-                {
-                    lookup.insert(key, method_ref);
-                } else if method_ref
-                    .interface
-                    .namespace
-                    .starts_with("Microsoft.UI.Xaml")
                 {
                     lookup.insert(key, method_ref);
                 } else {

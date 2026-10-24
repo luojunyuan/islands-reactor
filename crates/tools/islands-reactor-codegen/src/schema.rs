@@ -17,7 +17,7 @@ pub struct Control {
     /// Defaults to the resolved `kind`.
     /// The metadata resolver looks up `{namespace}.{handle}`.
     pub handle: Option<String>,
-    /// WinRT namespace override. Defaults to `"Microsoft.UI.Xaml.Controls"`.
+    /// WinRT namespace override. Defaults to `"Windows.UI.Xaml.Controls"`.
     pub namespace: Option<String>,
     /// Property bindings.
     pub prop: Vec<PropDecl>,
@@ -42,7 +42,7 @@ impl Control {
     pub fn namespace(&self) -> &str {
         self.namespace
             .as_deref()
-            .unwrap_or("Microsoft.UI.Xaml.Controls")
+            .unwrap_or("Windows.UI.Xaml.Controls")
     }
 
     /// Rust binding module used by the backend for this control's native type.
@@ -115,7 +115,7 @@ pub struct EnumMapSetter {
     /// Binding module for the WinUI enum type. Inferred from metadata when possible.
     #[serde(default)]
     pub module: Option<String>,
-    /// WinUI enum type relative to `Xaml::` (e.g. `"InfoBarSeverity"`).
+    /// WinUI enum type relative to `Xaml::` (e.g. `"TreeViewSelectionMode"`).
     pub winui_type: String,
 }
 
@@ -405,8 +405,6 @@ impl EventDecl {
 pub fn module_alias_for_namespace(namespace: &str) -> Option<&'static str> {
     if namespace.starts_with("Windows.UI.Xaml") {
         Some("Xaml")
-    } else if namespace.starts_with("Microsoft.UI.Xaml") {
-        Some("Muxc")
     } else if namespace.starts_with("Islands.UI.Xaml") {
         Some("Iuxc")
     } else {

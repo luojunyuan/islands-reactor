@@ -67,13 +67,6 @@ pub const ALL_CONTROLS: &[ControlInfo] = &[
         image: "HyperlinkButton.png",
     },
     ControlInfo {
-        title: "NumberBox",
-        description: "A text control for entering numeric values.",
-        category: "Basic Input",
-        tag: "number-box",
-        image: "NumberBox.png",
-    },
-    ControlInfo {
         title: "PasswordBox",
         description: "A text input that conceals typed characters.",
         category: "Basic Input",
@@ -280,13 +273,6 @@ pub const ALL_CONTROLS: &[ControlInfo] = &[
         tag: "menu-flyout",
         image: "MenuFlyout.png",
     },
-    ControlInfo {
-        title: "TeachingTip",
-        description: "A notification flyout for guiding users.",
-        category: "Dialogs and Flyouts",
-        tag: "teaching-tip",
-        image: "TeachingTip.png",
-    },
     // ── Layout ──────────────────────────────────────────────────────
     ControlInfo {
         title: "Border",
@@ -301,13 +287,6 @@ pub const ALL_CONTROLS: &[ControlInfo] = &[
         category: "Layout",
         tag: "canvas",
         image: "Canvas.png",
-    },
-    ControlInfo {
-        title: "Expander",
-        description: "Expands and collapses to show or hide content.",
-        category: "Layout",
-        tag: "expander",
-        image: "Expander.png",
     },
     ControlInfo {
         title: "Grid",
@@ -390,32 +369,11 @@ pub const ALL_CONTROLS: &[ControlInfo] = &[
     },
     // ── Navigation ──────────────────────────────────────────────────
     ControlInfo {
-        title: "BreadcrumbBar",
-        description: "A trail showing the navigation path.",
-        category: "Navigation",
-        tag: "breadcrumb-bar",
-        image: "BreadcrumbBar.png",
-    },
-    ControlInfo {
-        title: "NavigationView",
-        description: "A side or top navigation pane.",
-        category: "Navigation",
-        tag: "navigation-view",
-        image: "NavigationView.png",
-    },
-    ControlInfo {
         title: "Pivot",
         description: "A tabbed interface for switching sections.",
         category: "Navigation",
         tag: "pivot",
         image: "Pivot.png",
-    },
-    ControlInfo {
-        title: "TabView",
-        description: "Closable, rearrangeable tabs.",
-        category: "Navigation",
-        tag: "tab-view",
-        image: "TabView.png",
     },
     ControlInfo {
         title: "TitleBar",
@@ -425,20 +383,6 @@ pub const ALL_CONTROLS: &[ControlInfo] = &[
         image: "TitleBar.png",
     },
     // ── Status and Info ─────────────────────────────────────────────
-    ControlInfo {
-        title: "InfoBadge",
-        description: "A small indicator conveying status.",
-        category: "Status and Info",
-        tag: "info-badge",
-        image: "InfoBadge.png",
-    },
-    ControlInfo {
-        title: "InfoBar",
-        description: "A dismissible bar for app-level messages.",
-        category: "Status and Info",
-        tag: "info-bar",
-        image: "InfoBar.png",
-    },
     ControlInfo {
         title: "ProgressBar",
         description: "A horizontal bar showing progress.",

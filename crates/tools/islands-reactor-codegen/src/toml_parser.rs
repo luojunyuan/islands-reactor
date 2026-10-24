@@ -2,7 +2,7 @@
 ///
 /// Format:
 /// ```toml
-/// ["Microsoft.UI.Xaml.Controls.Button"]
+/// ["Windows.UI.Xaml.Controls.Button"]
 /// Content = { type = "Str" }
 /// IsEnabled = { default = "true" }
 /// Click = {}
@@ -69,7 +69,7 @@ struct MemberOverride {
     /// Explicit WinUI enum type for enum-backed I32 properties.
     #[serde(default)]
     winui_type: Option<String>,
-    /// Explicit binding module for `winui_type`, e.g. `Xaml` or `Muxc`.
+    /// Explicit binding module for `winui_type`, e.g. `Xaml` or `Iuxc`.
     #[serde(default)]
     enum_module: Option<String>,
 }
@@ -164,7 +164,7 @@ pub fn parse(toml_content: &str, resolver: &MetadataResolver) -> Vec<Control> {
             } else {
                 None
             },
-            namespace: if ns != "Microsoft.UI.Xaml.Controls" {
+            namespace: if ns != "Windows.UI.Xaml.Controls" {
                 Some(ns.to_string())
             } else {
                 None
@@ -384,11 +384,11 @@ fn build_event(
     }
 }
 
-/// Split "Microsoft.UI.Xaml.Controls.Button" into ("Microsoft.UI.Xaml.Controls", "Button").
+/// Split "Windows.UI.Xaml.Controls.Button" into ("Windows.UI.Xaml.Controls", "Button").
 fn split_type_name(full_name: &str) -> (&str, &str) {
     full_name.rsplit_once('.').unwrap_or_else(|| {
         panic!(
-            "type name '{full_name}' must contain a dot (e.g. 'Microsoft.UI.Xaml.Controls.Button')"
+            "type name '{full_name}' must contain a dot (e.g. 'Windows.UI.Xaml.Controls.Button')"
         )
     })
 }

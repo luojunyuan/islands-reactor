@@ -17,9 +17,6 @@ SuggestionChosen = { manual = true, type = "Str" }
 
 ["Windows.UI.Xaml.Controls.Border"]
 
-["Microsoft.UI.Xaml.Controls.BreadcrumbBar"]
-ItemClicked = { property = "Index" }
-
 ["Windows.UI.Xaml.Controls.Button"]
 IsEnabled = {}
 Click = {}
@@ -83,16 +80,11 @@ YearVisible = {}
 IsEnabled = {}
 SelectedDateChanged = { manual = true, type = "DateTime" }
 
-["Microsoft.UI.Xaml.Controls.DropDownButton"]
+["Windows.UI.Xaml.Controls.DropDownButton"]
 Content = { type = "Str" }
 IsEnabled = {}
 ItemClicked = { manual = true, type = "Str" }
 Click = {}
-
-["Microsoft.UI.Xaml.Controls.Expander"]
-Header = {}
-IsExpanded = {}
-Expanding = { false_event = "Collapsed" }
 
 ["Windows.UI.Xaml.Controls.Grid"]
 RowSpacing = {}
@@ -102,14 +94,6 @@ ColumnSpacing = {}
 Content = {}
 IsEnabled = {}
 Click = {}
-
-["Microsoft.UI.Xaml.Controls.InfoBar"]
-Title = {}
-Message = {}
-Severity = {}
-IsOpen = {}
-IsClosable = {}
-Closed = {}
 
 ["Windows.UI.Xaml.Controls.Image"]
 Stretch = {}
@@ -121,28 +105,6 @@ SelectionChanged = { manual = true, type = "I32" }
 
 ["Windows.UI.Xaml.Controls.MenuBar"]
 ItemClicked = { manual = true, type = "Str" }
-
-["Microsoft.UI.Xaml.Controls.NavigationView"]
-IsPaneOpen = {}
-PaneDisplayMode = {}
-IsBackEnabled = {}
-IsSettingsVisible = {}
-IsPaneToggleButtonVisible = {}
-PaneTitle = {}
-Header = {}
-SelectionChanged = { manual = true, type = "Str" }
-BackRequested = {}
-QuerySubmitted = { manual = true, type = "Str" }
-TextChanged = { manual = true, type = "Str" }
-SuggestionChosen = { manual = true, type = "Str" }
-
-["Microsoft.UI.Xaml.Controls.NumberBox"]
-Value = {}
-Minimum = {}
-Maximum = {}
-Header = {}
-IsEnabled = {}
-ValueChanged = { property = "NewValue" }
 
 ["Windows.UI.Xaml.Controls.PasswordBox"]
 PlaceholderText = {}
@@ -176,12 +138,6 @@ IsChecked = {}
 GroupName = {}
 IsEnabled = {}
 Checked = {}
-
-["Microsoft.UI.Xaml.Controls.RadioButtons"]
-Header = {}
-SelectedIndex = {}
-MaxColumns = {}
-SelectionChanged = { property = "SelectedIndex" }
 
 ["Windows.UI.Xaml.Controls.RatingControl"]
 Value = {}
@@ -226,7 +182,7 @@ Orientation = {}
 IsEnabled = {}
 ValueChanged = { property = "NewValue" }
 
-["Microsoft.UI.Xaml.Controls.SplitButton"]
+["Windows.UI.Xaml.Controls.SplitButton"]
 Content = { type = "Str" }
 IsEnabled = {}
 Click = {}
@@ -240,23 +196,6 @@ PaneClosed = {}
 ["Windows.UI.Xaml.Controls.StackPanel"]
 Orientation = {}
 Spacing = {}
-
-["Microsoft.UI.Xaml.Controls.TabView"]
-SelectedIndex = {}
-CanReorderTabs = {}
-IsAddTabButtonVisible = {}
-SelectionChanged = { manual = true, type = "I32" }
-CloseRequested = { manual = true, type = "Str" }
-AddTabButtonClick = {}
-
-["Microsoft.UI.Xaml.Controls.TeachingTip"]
-Title = {}
-Subtitle = {}
-IsOpen = {}
-IsLightDismissEnabled = {}
-PreferredPlacement = {}
-Closed = {}
-ActionButtonClick = {}
 
 ["Windows.UI.Xaml.Controls.TextBlock"]
 Text = {}

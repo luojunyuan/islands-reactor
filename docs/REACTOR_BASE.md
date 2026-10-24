@@ -1,11 +1,9 @@
 # Reactor Base
 
-This crate ports the upstream `windows-rs` Reactor crate, targeting broad
-behavioral and structural parity rather than a small subset of its public API.
+`islands-reactor` follows the current `windows-rs` Reactor crate structure and
+preserves its public API where the platform allows. The rendering kernel uses
+`Windows.UI.Xaml` hosted in XAML Islands rather than WinAppSDK windows.
 
-`islands-reactor` should preserve Reactor's public API, module and folder
-structure, generated binding model, and runtime behavior wherever practical.
-The core work replaces the WinAppSDK / WinUI 3 kernel with
-`Windows.UI.Xaml` XAML Islands and WinUI 2 (`Microsoft.UI.Xaml` / MUXC), then
-closes the remaining behavioral gaps so Reactor applications can migrate by
-changing their package/import name.
+Controls supplied by the Islands runtime live behind private bindings and
+backend adapters. Platform differences that cannot be represented by the
+Windows XAML controls are documented in `UNSUPPORTED_REACTOR.md`.
