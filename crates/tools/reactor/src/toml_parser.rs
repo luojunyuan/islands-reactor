@@ -418,11 +418,11 @@ impl LineIndex {
         Self { entries }
     }
 
-    /// Returns a prefix like "reactor_widgets.toml:42: " or "" if not found.
+    /// Returns a prefix like "schema.toml:42: " or "" if not found.
     fn find(&self, section: &str, key: &str) -> String {
         self.entries
             .get(&(section.to_string(), key.to_string()))
-            .map(|line| format!("reactor_widgets.toml:{line}: "))
+            .map(|line| format!("schema.toml:{line}: "))
             .unwrap_or_default()
     }
 }

@@ -72,19 +72,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "islands-reactor-codegen"
-version = "0.1.0"
-dependencies = [
- "cargo_metadata",
- "proc-macro2",
- "quote",
- "serde",
- "toml",
- "windows-bindgen",
- "windows-metadata",
-]
-
-[[package]]
 name = "islands-reactor-demo"
 version = "0.1.0"
 dependencies = [
@@ -274,6 +261,19 @@ name = "toml_write"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d99f8c9a7727884afe522e9bd5edbfc91a3312b36a77b5fb8926e4c31a41801"
+
+[[package]]
+name = "tool-reactor"
+version = "0.1.0"
+dependencies = [
+ "cargo_metadata",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "toml",
+ "windows-bindgen",
+ "windows-metadata",
+]
 
 [[package]]
 name = "unicode-ident"

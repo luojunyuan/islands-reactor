@@ -12,7 +12,7 @@ The workspace is arranged as follows:
 
 - `reference/windows-rs`: upstream `windows-rs` submodule
 - `crates/islands-reactor`: Reactor-compatible library and native backend
-- `crates/tools/islands-reactor-codegen`: checked-in binding/code generator
+- `crates/tools/reactor`: Islands binding/code generator, following the upstream tool layout
 - `samples`: gallery and small applications
 
 ## Runtime
@@ -30,7 +30,7 @@ Normal builds use checked-in bindings and do not download packages. Binding
 generation is explicit:
 
 ```powershell
-cargo run -p islands-reactor-codegen -- generate-bindings
+cargo run -p tool-reactor -- generate-bindings
 ```
 
 Bindings live under `crates/islands-reactor/src/native`:
@@ -39,10 +39,12 @@ Bindings live under `crates/islands-reactor/src/native`:
 - `bindings_iuxc.rs`: private bindings for the Islands controls package
 - `winui/backend/generated`: generated property and event dispatch modules
 
-The code generator reads the workspace declarations in
-`crates/tools/islands-reactor-codegen/src/reactor_widgets.toml` and regenerates
-widget bindings and backend dispatch tables. It does not stage runtime DLL or
-PRI assets.
+The code generator reads `crates/tools/reactor/src/schema.toml` and its binding
+filters, then regenerates every checked-in generated Rust file under
+`crates/islands-reactor/src`. Public widget declarations remain handwritten
+because Islands uses its own declaration API and control set; they have no
+one-to-one generated declaration file in this port. Generation does not stage
+runtime DLL or PRI assets.
 
 ## Porting Contract
 

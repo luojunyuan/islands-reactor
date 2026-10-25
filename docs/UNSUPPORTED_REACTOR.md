@@ -41,7 +41,7 @@ Normal Cargo builds use checked-in bindings and do not run `windows-bindgen` or
 download packages. Regeneration is explicit:
 
 ```powershell
-cargo run -p islands-reactor-codegen -- generate-bindings
+cargo run -p tool-reactor -- generate-bindings
 ```
 
 The generator uses the Windows XAML metadata and the local Islands controls
