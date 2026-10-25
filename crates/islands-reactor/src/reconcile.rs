@@ -5,11 +5,1794 @@ use rustc_hash::FxHashMap;
 
 pub(crate) use super::*;
 
-mod child;
-mod diff_helpers;
-mod templated;
-mod widget_dispatch;
-mod wrappers;
+mod child {
+    use rustc_hash::{FxHashMap, FxHashSet};
+    use std::borrow::Cow;
+
+    use super::*;
+
+    fn update_child_tracked<B: Backend + 'static>(
+        reconciler: &mut Reconciler<B>,
+        parent: ControlId,
+        index: usize,
+        old: &Element,
+        new: &Element,
+    ) {
+        let Some(old_id) = reconciler.child_at(parent, index) else {
+            return;
+        };
+        match reconciler.update(old, new, old_id) {
+            Some(nid) if nid != old_id => {
+                reconciler.replace_child_tracked(parent, index, nid);
+            }
+            Some(_) => {}
+            None => {
+                reconciler.remove_child_tracked(parent, index);
+            }
+        }
+    }
+
+    pub(crate) fn reconcile<B: Backend + 'static>(
+        reconciler: &mut Reconciler<B>,
+        parent: ControlId,
+        old_live: LiveChildrenRef<'_>,
+        new_live: LiveChildrenRef<'_>,
+    ) {
+        let has_keys = old_live.any_has_key() || new_live.any_has_key();
+
+        if has_keys {
+            reconcile_keyed_live(reconciler, parent, &old_live, &new_live);
+        } else {
+            reconcile_positional_live(reconciler, parent, &old_live, &new_live);
+        }
+    }
+
+    pub(crate) fn reconcile_positional<B: Backend + 'static>(
+        reconciler: &mut Reconciler<B>,
+        parent: ControlId,
+        old_live: LiveChildrenRef<'_>,
+        new_live: LiveChildrenRef<'_>,
+    ) {
+        reconcile_positional_live(reconciler, parent, &old_live, &new_live);
+    }
+
+    fn reconcile_positional_live<B: Backend + 'static>(
+        reconciler: &mut Reconciler<B>,
+        parent: ControlId,
+        old_live: &LiveChildrenRef<'_>,
+        new_live: &LiveChildrenRef<'_>,
+    ) {
+        let old_len = old_live.len();
+        let new_len = new_live.len();
+        let common = old_len.min(new_len);
+
+        for i in 0..common {
+            if reconciler.child_at(parent, i).is_none() {
+                debug_assert!(
+                    false,
+                    "audit §7.1.10: positional reconcile out of mirror bounds at \
+                 parent={parent:?} i={i} common={common} \
+                 (mirror_len={mirror_len}, old_live.len={old_len}, \
+                  new_live.len={new_len}). Likely a child-tracking miss \
+                 in a recent edit to the reconciler.",
+                    mirror_len = reconciler
+                        .children_mirror
+                        .get(&parent)
+                        .map_or(0, |v| v.len()),
+                    old_len = old_len,
+                    new_len = new_len,
+                );
+                break;
+            }
+
+            let old_el = old_live.get(i).unwrap();
+            let new_el = new_live.get(i).unwrap();
+
+            if !reconciler.force_component_rerender && can_skip_update(old_el, new_el) {
+                // Even when elements are structurally identical, a child component
+                // whose state was mutated via SetState must still be re-rendered.
+                let child_id = reconciler.child_at(parent, i);
+                let state_dirty =
+                    child_id.is_some_and(|cid| reconciler.is_component_state_dirty(cid));
+                if !state_dirty {
+                    reconciler.debug_elements_skipped += 1;
+                    continue;
+                }
+            }
+
+            if old_el.kind_matches(new_el) {
+                update_child_tracked(reconciler, parent, i, old_el, new_el);
+            } else {
+                if let Some(old_id) = reconciler.child_at(parent, i) {
+                    reconciler.unmount(old_id);
+                }
+                match reconciler.mount(new_el) {
+                    Some(new_id) => reconciler.replace_child_tracked(parent, i, new_id),
+                    None => reconciler.remove_child_tracked(parent, i),
+                }
+            }
+        }
+
+        if old_len > new_len {
+            for idx in (common..old_len).rev() {
+                if let Some(id) = reconciler.child_at(parent, idx) {
+                    reconciler.unmount(id);
+                }
+                reconciler.remove_child_tracked(parent, idx);
+            }
+        }
+
+        if new_len > old_len {
+            for i in common..new_len {
+                let el = new_live.get(i).unwrap();
+                if let Some(child_id) = reconciler.mount(el) {
+                    reconciler.append_child_tracked(parent, child_id);
+                }
+            }
+        }
+    }
+
+    fn effective_key(el: &Element, positional_index: usize) -> Cow<'_, str> {
+        if let Some(k) = el.key() {
+            return Cow::Borrowed(k);
+        }
+        Cow::Owned(format!("__pos_{positional_index}_{}", el.kind_name()))
+    }
+
+    fn key_match(a: &Element, b: &Element) -> bool {
+        if !a.can_update(b) {
+            return false;
+        }
+
+        a.key() == b.key()
+    }
+
+    fn reconcile_keyed_live<B: Backend + 'static>(
+        reconciler: &mut Reconciler<B>,
+        parent: ControlId,
+        old: &LiveChildrenRef<'_>,
+        new: &LiveChildrenRef<'_>,
+    ) {
+        let old_len = old.len();
+        let new_len = new.len();
+
+        let mut prefix = 0;
+        while prefix < old_len
+            && prefix < new_len
+            && key_match(old.get(prefix).unwrap(), new.get(prefix).unwrap())
+        {
+            let old_el = old.get(prefix).unwrap();
+            let new_el = new.get(prefix).unwrap();
+            if reconciler.child_at(parent, prefix).is_some() {
+                if !reconciler.force_component_rerender && can_skip_update(old_el, new_el) {
+                    let child_id = reconciler.child_at(parent, prefix);
+                    let state_dirty =
+                        child_id.is_some_and(|cid| reconciler.is_component_state_dirty(cid));
+                    if state_dirty {
+                        update_child_tracked(reconciler, parent, prefix, old_el, new_el);
+                    } else {
+                        reconciler.debug_elements_skipped += 1;
+                    }
+                } else {
+                    update_child_tracked(reconciler, parent, prefix, old_el, new_el);
+                }
+            }
+            prefix += 1;
+        }
+
+        debug_assert!(prefix <= old_len.min(new_len));
+        let old_remaining = old_len.saturating_sub(prefix);
+        let new_remaining = new_len.saturating_sub(prefix);
+
+        let mut suffix = 0;
+        while suffix < old_remaining
+            && suffix < new_remaining
+            && key_match(
+                old.get(old_len - 1 - suffix).unwrap(),
+                new.get(new_len - 1 - suffix).unwrap(),
+            )
+        {
+            let old_idx = old_len - 1 - suffix;
+            let panel_idx = reconciler
+                .children_mirror
+                .get(&parent)
+                .map_or(0, |v| v.len().saturating_sub(1).saturating_sub(suffix));
+            let old_el = old.get(old_idx).unwrap();
+            let new_el = new.get(new_len - 1 - suffix).unwrap();
+            if reconciler.child_at(parent, panel_idx).is_some() {
+                if !reconciler.force_component_rerender && can_skip_update(old_el, new_el) {
+                    let child_id = reconciler.child_at(parent, panel_idx);
+                    let state_dirty =
+                        child_id.is_some_and(|cid| reconciler.is_component_state_dirty(cid));
+                    if state_dirty {
+                        update_child_tracked(reconciler, parent, panel_idx, old_el, new_el);
+                    } else {
+                        reconciler.debug_elements_skipped += 1;
+                    }
+                } else {
+                    update_child_tracked(reconciler, parent, panel_idx, old_el, new_el);
+                }
+            }
+            suffix += 1;
+        }
+
+        let old_start = prefix;
+        let old_end = old_len - suffix;
+        let new_start = prefix;
+        let new_end = new_len - suffix;
+        let old_mid_len = old_end - old_start;
+        let new_mid_len = new_end - new_start;
+
+        if old_mid_len == 0 && new_mid_len == 0 {
+            return;
+        }
+
+        if old_mid_len == 0 {
+            for i in 0..new_mid_len {
+                let new_el = new.get(new_start + i).unwrap();
+                if let Some(ctrl) = reconciler.mount(new_el) {
+                    reconciler.insert_child_tracked(parent, prefix + i, ctrl);
+                }
+            }
+            return;
+        }
+
+        if new_mid_len == 0 {
+            for i in (0..old_mid_len).rev() {
+                let panel_idx = prefix + i;
+                if let Some(id) = reconciler.child_at(parent, panel_idx) {
+                    reconciler.unmount(id);
+                }
+                reconciler.remove_child_tracked(parent, panel_idx);
+            }
+            return;
+        }
+
+        reconcile_keyed_middle(
+            reconciler,
+            parent,
+            old,
+            new,
+            old_start,
+            old_mid_len,
+            new_start,
+            new_mid_len,
+            prefix,
+        );
+    }
+
+    #[allow(clippy::too_many_arguments, clippy::needless_range_loop)]
+    fn reconcile_keyed_middle<B: Backend + 'static>(
+        reconciler: &mut Reconciler<B>,
+        parent: ControlId,
+        old: &LiveChildrenRef<'_>,
+        new: &LiveChildrenRef<'_>,
+        old_start: usize,
+        old_mid_len: usize,
+        new_start: usize,
+        new_mid_len: usize,
+        prefix: usize,
+    ) {
+        let mut old_key_map: FxHashMap<Cow<'_, str>, usize> = FxHashMap::default();
+        old_key_map.reserve(old_mid_len);
+        for i in 0..old_mid_len {
+            let el = old.get(old_start + i).unwrap();
+            let key = effective_key(el, old_start + i);
+            old_key_map.insert(key, i);
+        }
+
+        let mut new_to_old: Vec<i32> = vec![-1; new_mid_len];
+        let mut matched: Vec<bool> = vec![false; old_mid_len];
+        for i in 0..new_mid_len {
+            let el = new.get(new_start + i).unwrap();
+            let key = effective_key(el, new_start + i);
+            if let Some(&old_rel) = old_key_map.get(key.as_ref()) {
+                let old_el = old.get(old_start + old_rel).unwrap();
+
+                if old_el.can_update(el) {
+                    new_to_old[i] = old_rel as i32;
+                    matched[old_rel] = true;
+                }
+            }
+        }
+
+        let lis: FxHashSet<usize> = compute_lis(&new_to_old);
+
+        for i in (0..old_mid_len).rev() {
+            if !matched[i] {
+                let panel_idx = prefix + i;
+                if let Some(id) = reconciler.child_at(parent, panel_idx) {
+                    reconciler.unmount(id);
+                }
+                reconciler.remove_child_tracked(parent, panel_idx);
+            }
+        }
+
+        let mut key_to_panel: FxHashMap<Cow<'_, str>, usize> = FxHashMap::default();
+        {
+            let mut panel_idx = prefix;
+            for i in 0..old_mid_len {
+                if matched[i] {
+                    let key = effective_key(old.get(old_start + i).unwrap(), old_start + i);
+                    key_to_panel.insert(key, panel_idx);
+                    panel_idx += 1;
+                }
+            }
+        }
+
+        for i in 0..new_mid_len {
+            let target_panel_idx = prefix + i;
+            let new_el = new.get(new_start + i).unwrap();
+
+            if new_to_old[i] == -1 {
+                if let Some(ctrl) = reconciler.mount(new_el) {
+                    reconciler.insert_child_tracked(parent, target_panel_idx, ctrl);
+
+                    for v in key_to_panel.values_mut() {
+                        if *v >= target_panel_idx {
+                            *v += 1;
+                        }
+                    }
+                }
+            } else if lis.contains(&i) {
+                let old_rel = new_to_old[i] as usize;
+                let old_el = old.get(old_start + old_rel).unwrap();
+                // LIS items don't need to move, but earlier non-LIS moves in
+                // this same loop may have shifted them to a different actual
+                // panel slot. Use `key_to_panel` for the LIS element's current
+                // position so we update the right control. (Using
+                // `target_panel_idx` would update whichever control happens to
+                // have been displaced into that slot — see the keyed-shuffle
+                // regression test in this module.)
+                let key = effective_key(old_el, old_start + old_rel);
+                let actual_pos = *key_to_panel.get(key.as_ref()).unwrap();
+                if reconciler.child_at(parent, actual_pos).is_some() {
+                    if can_skip_update(old_el, new_el) {
+                        let child_id = reconciler.child_at(parent, actual_pos);
+                        let state_dirty =
+                            child_id.is_some_and(|cid| reconciler.is_component_state_dirty(cid));
+                        if state_dirty {
+                            update_child_tracked(reconciler, parent, actual_pos, old_el, new_el);
+                        } else {
+                            reconciler.debug_elements_skipped += 1;
+                        }
+                    } else {
+                        update_child_tracked(reconciler, parent, actual_pos, old_el, new_el);
+                    }
+                }
+            } else {
+                let old_rel = new_to_old[i] as usize;
+                let old_el = old.get(old_start + old_rel).unwrap();
+                let key = effective_key(old_el, old_start + old_rel);
+                let current_pos = *key_to_panel.get(key.as_ref()).unwrap();
+                if current_pos != target_panel_idx {
+                    reconciler.move_child_tracked(parent, current_pos, target_panel_idx);
+
+                    for v in key_to_panel.values_mut() {
+                        if *v == current_pos {
+                            *v = target_panel_idx;
+                        } else if current_pos < target_panel_idx
+                            && *v > current_pos
+                            && *v <= target_panel_idx
+                        {
+                            *v -= 1;
+                        } else if current_pos > target_panel_idx
+                            && *v >= target_panel_idx
+                            && *v < current_pos
+                        {
+                            *v += 1;
+                        }
+                    }
+                }
+
+                if reconciler.child_at(parent, target_panel_idx).is_some() {
+                    if can_skip_update(old_el, new_el) {
+                        let child_id = reconciler.child_at(parent, target_panel_idx);
+                        let state_dirty =
+                            child_id.is_some_and(|cid| reconciler.is_component_state_dirty(cid));
+                        if state_dirty {
+                            update_child_tracked(
+                                reconciler,
+                                parent,
+                                target_panel_idx,
+                                old_el,
+                                new_el,
+                            );
+                        } else {
+                            reconciler.debug_elements_skipped += 1;
+                        }
+                    } else {
+                        update_child_tracked(reconciler, parent, target_panel_idx, old_el, new_el);
+                    }
+                }
+            }
+        }
+    }
+
+    pub(crate) fn compute_lis(arr: &[i32]) -> FxHashSet<usize> {
+        let n = arr.len();
+        if n == 0 {
+            return FxHashSet::default();
+        }
+
+        let mut tails: Vec<i32> = Vec::new();
+        let mut tail_idx: Vec<usize> = Vec::new();
+        let mut pred: Vec<i32> = vec![-1; n];
+
+        for (i, &val) in arr.iter().enumerate() {
+            if val == -1 {
+                continue;
+            }
+
+            let mut lo = 0_usize;
+            let mut hi = tails.len();
+            while lo < hi {
+                let mid = (lo + hi) / 2;
+                if tails[mid] < val {
+                    lo = mid + 1;
+                } else {
+                    hi = mid;
+                }
+            }
+
+            if lo == tails.len() {
+                tails.push(val);
+                tail_idx.push(i);
+            } else {
+                tails[lo] = val;
+                tail_idx[lo] = i;
+            }
+
+            if lo > 0 {
+                pred[i] = tail_idx[lo - 1] as i32;
+            }
+        }
+
+        let mut result: FxHashSet<usize> = FxHashSet::default();
+        if tail_idx.is_empty() {
+            return result;
+        }
+        let mut idx = *tail_idx.last().unwrap() as i32;
+        while idx != -1 {
+            result.insert(idx as usize);
+            idx = pred[idx as usize];
+        }
+        result
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn lis_empty() {
+            let s = compute_lis(&[]);
+            assert!(s.is_empty());
+        }
+
+        #[test]
+        fn lis_single() {
+            let s = compute_lis(&[5]);
+            assert_eq!(s.len(), 1);
+            assert!(s.contains(&0));
+        }
+
+        #[test]
+        fn lis_sorted() {
+            let s = compute_lis(&[1, 2, 3, 4, 5]);
+            assert_eq!(s.len(), 5);
+        }
+
+        #[test]
+        fn lis_reversed() {
+            let s = compute_lis(&[5, 4, 3, 2, 1]);
+            assert_eq!(s.len(), 1);
+        }
+
+        #[test]
+        fn lis_with_unmapped() {
+            let s = compute_lis(&[-1, 2, -1, 4, -1]);
+            assert_eq!(s.len(), 2);
+        }
+
+        #[test]
+        fn lis_all_unmapped() {
+            let s = compute_lis(&[-1, -1, -1]);
+            assert!(s.is_empty());
+        }
+
+        #[test]
+        fn lis_mixed() {
+            let s = compute_lis(&[3, 1, 2, 4]);
+            assert_eq!(s.len(), 3);
+        }
+
+        #[test]
+        fn lis_returned_indices_are_strictly_increasing_values() {
+            let arr = [5, 1, 4, 2, 3];
+            let s = compute_lis(&arr);
+            let mut ordered: Vec<usize> = s.into_iter().collect();
+            ordered.sort();
+            for w in ordered.windows(2) {
+                assert!(arr[w[1]] > arr[w[0]]);
+            }
+        }
+
+        #[test]
+        fn lis_realistic_reconcile_shift_one() {
+            let s = compute_lis(&[2, 0, 1, 3]);
+            assert_eq!(s.len(), 3);
+        }
+
+        /// Regression: in a keyed reorder of mixed-kind children, the LIS
+        /// branch of `reconcile_keyed_middle` previously called
+        /// `update_child_tracked(parent, target_panel_idx, ..)` even though an
+        /// earlier non-LIS move had already shifted the LIS element to a
+        /// different actual slot. The reconciler then updated the wrong
+        /// control: e.g. it pushed a `Click` binding (from a Button element)
+        /// onto a TextBlock control, which crashed the WinUI backend with
+        /// `STATUS_STACK_BUFFER_OVERRUN` (see `winui/backend.rs::attach_event`).
+        ///
+        /// Scenario: a vertical StackPanel with five keyed children
+        /// `[empty(TextBlock), X(Button), A(Button), B(Button), C(Button)]`
+        /// reordered to `[X, A, empty, B, C]`. Empty moves 0 -> 2, X moves
+        /// 1 -> 0, A moves 2 -> 1, B/C stay (LIS includes new indices 0, 1,
+        /// 3, 4 with old positions 1, 2, 3, 4). With the buggy left-to-right
+        /// pass, the LIS update for new[0]=X runs at `target_panel_idx=0`
+        /// while slot 0 still holds the empty TextBlock, so Click bindings
+        /// get attached to the TextBlock — that's the crash.
+        #[test]
+        fn keyed_reorder_with_mixed_kinds_keeps_controls_aligned() {
+            use crate::element::{Button, Element, StackPanel, TextBlock};
+            use crate::ir::{ControlKind, Op, PropValue, RecordingBackend};
+            use crate::reconcile::Reconciler;
+            use std::rc::Rc;
+
+            fn tile(key: &'static str) -> Element {
+                let mut b = Button::new(key);
+                b.key = Some(key.to_string());
+                b.on_click = Some(crate::callback::Callback::new(|()| {}));
+                Element::Button(b)
+            }
+            fn empty() -> Element {
+                let mut t = TextBlock::new("");
+                t.key = Some("empty".to_string());
+                Element::TextBlock(t)
+            }
+            fn stack(children: Vec<Element>) -> Element {
+                let mut s = StackPanel::vertical();
+                s.children = children;
+                Element::StackPanel(s)
+            }
+
+            let old = stack(vec![
+                empty(),
+                tile("tile-X"),
+                tile("tile-A"),
+                tile("tile-B"),
+                tile("tile-C"),
+            ]);
+            let new = stack(vec![
+                tile("tile-X"),
+                tile("tile-A"),
+                empty(),
+                tile("tile-B"),
+                tile("tile-C"),
+            ]);
+
+            let mut reconciler = Reconciler::new(RecordingBackend::new());
+            let noop: Rc<dyn Fn()> = Rc::new(|| {});
+
+            let root = reconciler
+                .reconcile(None, &old, None, Rc::clone(&noop))
+                .unwrap();
+
+            // Snapshot (id -> kind) from the mount-phase ops.
+            let mut kind_of: rustc_hash::FxHashMap<crate::ir::ControlId, ControlKind> =
+                rustc_hash::FxHashMap::default();
+            for op in &reconciler.backend.ops {
+                if let Op::Create { id, kind } = op {
+                    kind_of.insert(*id, *kind);
+                }
+            }
+            // Map mount-order button ids to their key labels for the
+            // post-reorder label check.
+            let mount_button_ids: Vec<crate::ir::ControlId> = reconciler
+                .backend
+                .ops
+                .iter()
+                .filter_map(|op| match op {
+                    Op::Create {
+                        id,
+                        kind: ControlKind::Button,
+                    } => Some(*id),
+                    _ => None,
+                })
+                .collect();
+            let mount_button_labels = ["tile-X", "tile-A", "tile-B", "tile-C"];
+            assert_eq!(mount_button_ids.len(), mount_button_labels.len());
+
+            reconciler.backend.clear_ops();
+            reconciler
+                .reconcile(Some(&old), &new, Some(root), Rc::clone(&noop))
+                .unwrap();
+
+            // Pick up any new ids minted by the update (shouldn't be any).
+            for op in &reconciler.backend.ops {
+                if let Op::Create { id, kind } = op {
+                    kind_of.insert(*id, *kind);
+                }
+            }
+
+            // 1. No `Click` attach should land on a non-Button control —
+            //    this is the assertion that fails (and would panic in WinUI)
+            //    with the buggy reconciler.
+            for op in &reconciler.backend.ops {
+                if let Op::AttachEvent {
+                    id,
+                    event: crate::ir::Event::Click,
+                    ..
+                } = op
+                {
+                    let kind = kind_of.get(id).copied();
+                    assert_eq!(
+                        kind,
+                        Some(ControlKind::Button),
+                        "Click attach landed on non-Button control {id} (kind={kind:?}). \
+                     The LIS branch of reconcile_keyed_middle is desynced from \
+                     key_to_panel — see this test's doc comment."
+                    );
+                }
+            }
+
+            // 2. After reconciliation, every button control still carries
+            //    the label that matches its original key.
+            let mut latest_label: rustc_hash::FxHashMap<crate::ir::ControlId, String> =
+                rustc_hash::FxHashMap::default();
+            for op in &reconciler.backend.ops {
+                if let Op::SetProp {
+                    id,
+                    prop: crate::ir::Prop::Content,
+                    value: PropValue::Str(s),
+                } = op
+                {
+                    latest_label.insert(*id, s.clone());
+                }
+            }
+            for (id, want) in mount_button_ids.iter().zip(mount_button_labels.iter()) {
+                if let Some(got) = latest_label.get(id) {
+                    assert_eq!(
+                        got, want,
+                        "Button control {id} should still carry label {want} after the \
+                     reorder, but the latest ButtonContent set was {got:?}. The LIS \
+                     branch of reconcile_keyed_middle is pushing the wrong element's \
+                     bindings onto displaced controls."
+                    );
+                }
+            }
+        }
+    }
+}
+mod diff_helpers {
+    use super::*;
+
+    impl<B: Backend> Reconciler<B> {
+        pub(crate) fn diff_opt_f64(
+            &mut self,
+            id: ControlId,
+            prop: Prop,
+            old: Option<f64>,
+            new: Option<f64>,
+        ) {
+            if old == new {
+                return;
+            }
+            match new {
+                Some(v) => self.backend.set_prop(id, prop, &PropValue::F64(v)),
+                None => self.backend.set_prop(id, prop, &PropValue::Unset),
+            }
+        }
+
+        pub(crate) fn diff_opt_copy<T: Copy + PartialEq>(
+            &mut self,
+            id: ControlId,
+            prop: Prop,
+            old: Option<T>,
+            new: Option<T>,
+            wrap: fn(T) -> PropValue,
+        ) {
+            if old == new {
+                return;
+            }
+            match new {
+                Some(v) => self.backend.set_prop(id, prop, &wrap(v)),
+                None => self.backend.set_prop(id, prop, &PropValue::Unset),
+            }
+        }
+
+        pub(crate) fn diff_opt_clone<T: Clone + PartialEq>(
+            &mut self,
+            id: ControlId,
+            prop: Prop,
+            old: &Option<T>,
+            new: &Option<T>,
+            wrap: fn(T) -> PropValue,
+        ) {
+            if old == new {
+                return;
+            }
+            match new {
+                Some(v) => self.backend.set_prop(id, prop, &wrap(v.clone())),
+                None => self.backend.set_prop(id, prop, &PropValue::Unset),
+            }
+        }
+
+        pub(crate) fn apply_props(&mut self, id: ControlId, bindings: &[Binding]) {
+            for b in bindings {
+                match b {
+                    Binding::Prop(p, v) => self.backend.set_prop(id, *p, v),
+                    Binding::Event(e, Some(h)) => self.backend.attach_event(id, *e, h.clone()),
+                    Binding::Event(_, None) => {}
+                }
+            }
+        }
+
+        pub(crate) fn diff_props(&mut self, id: ControlId, old: &[Binding], new: &[Binding]) {
+            for b in new {
+                match b {
+                    Binding::Prop(p, v) => match find_prop(old, *p) {
+                        Some(ov) if ov == v => {}
+                        _ => self.backend.set_prop(id, *p, v),
+                    },
+                    Binding::Event(e, new_h) => {
+                        let old_inner: Option<&_> = find_event(old, *e).and_then(|o| o.as_ref());
+                        if old_inner == new_h.as_ref() {
+                            continue;
+                        }
+                        match new_h {
+                            Some(h) => self.backend.attach_event(id, *e, h.clone()),
+                            None => self.backend.detach_event(id, *e),
+                        }
+                    }
+                }
+            }
+            for b in old {
+                match b {
+                    Binding::Prop(p, _) => {
+                        if find_prop(new, *p).is_none() {
+                            self.backend.set_prop(id, *p, &PropValue::Unset);
+                        }
+                    }
+                    Binding::Event(e, old_h) => {
+                        if find_event(new, *e).is_none() && old_h.is_some() {
+                            self.backend.detach_event(id, *e);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+mod templated {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use super::*;
+
+    pub(crate) struct TemplatedListState {
+        pub(crate) element: TemplatedListElement,
+        pub(crate) rows: Vec<Option<RealizedRow>>,
+    }
+
+    pub(crate) struct RealizedRow {
+        pub(crate) rendered: Element,
+        pub(crate) content_id: ControlId,
+    }
+
+    #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+    pub enum RealizationRequest {
+        Realize { list_id: ControlId, row_idx: usize },
+        Recycle { list_id: ControlId, row_idx: usize },
+    }
+
+    pub type RealizationQueue = Rc<RefCell<Vec<RealizationRequest>>>;
+
+    pub fn new_realization_queue() -> RealizationQueue {
+        Rc::new(RefCell::new(Vec::new()))
+    }
+
+    impl<B: Backend + 'static> Reconciler<B> {
+        pub(crate) fn mount_templated_list(&mut self, tl: &TemplatedListElement) -> ControlId {
+            let kind = match tl.kind {
+                TemplatedKind::ListView => ControlKind::ListView,
+                TemplatedKind::GridView => ControlKind::GridView,
+                TemplatedKind::FlipView => ControlKind::FlipView,
+            };
+            let id = self.acquire_control(kind);
+            self.apply_modifiers(id, &tl.modifiers);
+
+            let count = tl.item_count();
+            let mut rows: Vec<Option<RealizedRow>> = Vec::with_capacity(count);
+            rows.resize_with(count, || None);
+            self.templated_lists.insert(
+                id,
+                TemplatedListState {
+                    element: tl.clone(),
+                    rows,
+                },
+            );
+
+            if tl.has_selection_handler() {
+                let trampoline = self.selection_callbacks.entry(id).or_default().clone();
+                *trampoline.borrow_mut() = tl.raw_selection_callback();
+                let trampoline_c = Rc::clone(&trampoline);
+                let cb = crate::callback::Callback::new(move |idx: i32| {
+                    if let Some(inner) = trampoline_c.borrow().as_ref() {
+                        inner.invoke(idx);
+                    }
+                });
+                self.backend.attach_templated_selection_changed(id, cb);
+            }
+
+            let queue_r = Rc::clone(&self.realization_queue);
+            let queue_c = Rc::clone(&self.realization_queue);
+            let list_id = id;
+            let realize: Rc<dyn Fn(usize)> = Rc::new(move |row_idx: usize| {
+                queue_r
+                    .borrow_mut()
+                    .push(RealizationRequest::Realize { list_id, row_idx });
+            });
+            let recycle: Rc<dyn Fn(usize)> = Rc::new(move |row_idx: usize| {
+                queue_c
+                    .borrow_mut()
+                    .push(RealizationRequest::Recycle { list_id, row_idx });
+            });
+            self.backend
+                .attach_templated_realization(id, realize, recycle);
+
+            self.backend.set_templated_item_count(id, count);
+            self.backend
+                .set_templated_selection_mode(id, tl.selection_mode);
+            let sel = tl.selected_index();
+            if sel >= 0 {
+                self.backend.set_templated_selected_index(id, sel);
+            }
+
+            if self.eager_templated_realization {
+                let mut q = self.realization_queue.borrow_mut();
+                for row_idx in 0..count {
+                    q.push(RealizationRequest::Realize {
+                        list_id: id,
+                        row_idx,
+                    });
+                }
+            }
+
+            id
+        }
+
+        pub(crate) fn update_templated_list(
+            &mut self,
+            old: &TemplatedListElement,
+            new: &TemplatedListElement,
+            id: ControlId,
+        ) {
+            self.diff_modifiers(id, &old.modifiers, &new.modifiers);
+
+            if let Some(state) = self.templated_lists.get_mut(&id) {
+                state.element = new.clone();
+            }
+
+            if let Some(cell) = self.selection_callbacks.get(&id) {
+                *cell.borrow_mut() = new.raw_selection_callback();
+            }
+
+            if old.selected_index() != new.selected_index() {
+                self.backend
+                    .set_templated_selected_index(id, new.selected_index());
+            }
+
+            if old.selection_mode != new.selection_mode {
+                self.backend
+                    .set_templated_selection_mode(id, new.selection_mode);
+            }
+
+            let old_count = old.item_count();
+            let new_count = new.item_count();
+            if old_count != new_count {
+                let to_unmount: Vec<(usize, ControlId)> = {
+                    let state = self.templated_lists.get_mut(&id).unwrap();
+                    let mut out = Vec::new();
+                    if new_count < state.rows.len() {
+                        for (i, row) in state.rows.drain(new_count..).enumerate() {
+                            if let Some(row) = row {
+                                out.push((new_count + i, row.content_id));
+                            }
+                        }
+                    }
+                    state.rows.resize_with(new_count, || None);
+                    out
+                };
+                for (row_idx, cid) in to_unmount {
+                    self.backend.set_templated_row_content(id, row_idx, None);
+                    self.unmount(cid);
+                }
+                self.backend.set_templated_item_count(id, new_count);
+            }
+
+            if !old.same_items_as(new) {
+                self.refresh_realized_rows(id, new);
+            }
+        }
+
+        fn refresh_realized_rows(&mut self, id: ControlId, new: &TemplatedListElement) {
+            let realized_indices: Vec<usize> = {
+                let state = self.templated_lists.get(&id).unwrap();
+                state
+                    .rows
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, r)| r.as_ref().map(|_| i))
+                    .collect()
+            };
+
+            for row_idx in realized_indices {
+                if row_idx >= new.item_count() {
+                    continue;
+                }
+                let (old_el, content_id) = {
+                    let state = self.templated_lists.get(&id).unwrap();
+                    let row = state.rows[row_idx].as_ref().unwrap();
+                    (row.rendered.clone(), row.content_id)
+                };
+                let new_el = new.build_item_view(row_idx);
+
+                if can_skip_update(&old_el, &new_el) {
+                    self.debug_elements_skipped += 1;
+                    if let Some(state) = self.templated_lists.get_mut(&id)
+                        && let Some(Some(row)) = state.rows.get_mut(row_idx)
+                    {
+                        row.rendered = new_el;
+                    }
+                    continue;
+                }
+
+                let new_id = self.update(&old_el, &new_el, content_id);
+                if let Some(nid) = new_id {
+                    if let Some(state) = self.templated_lists.get_mut(&id)
+                        && let Some(slot) = state.rows.get_mut(row_idx)
+                    {
+                        *slot = Some(RealizedRow {
+                            rendered: new_el,
+                            content_id: nid,
+                        });
+                    }
+                    if nid != content_id {
+                        self.backend
+                            .set_templated_row_content(id, row_idx, Some(nid));
+                    }
+                } else {
+                    if let Some(state) = self.templated_lists.get_mut(&id)
+                        && let Some(slot) = state.rows.get_mut(row_idx)
+                    {
+                        *slot = None;
+                    }
+                    self.backend.set_templated_row_content(id, row_idx, None);
+                }
+            }
+        }
+
+        pub fn drain_realizations(&mut self) {
+            let drained = {
+                let mut q = self.realization_queue.borrow_mut();
+                std::mem::take(&mut *q)
+            };
+            for req in drained {
+                match req {
+                    RealizationRequest::Realize { list_id, row_idx } => {
+                        self.realize_row_inner(list_id, row_idx);
+                    }
+                    RealizationRequest::Recycle { list_id, row_idx } => {
+                        self.recycle_row_inner(list_id, row_idx);
+                    }
+                }
+            }
+        }
+
+        fn realize_row_inner(&mut self, list_id: ControlId, row_idx: usize) {
+            let (rendered, count) = {
+                let Some(state) = self.templated_lists.get(&list_id) else {
+                    return;
+                };
+                if row_idx >= state.element.item_count() {
+                    return;
+                }
+                (
+                    state.element.build_item_view(row_idx),
+                    state.element.item_count(),
+                )
+            };
+
+            if let Some(existing) = self.clear_row_realized_state(list_id, row_idx) {
+                self.unmount(existing);
+            }
+
+            let Some(content_id) = self.mount(&rendered) else {
+                return;
+            };
+
+            self.backend
+                .set_templated_row_content(list_id, row_idx, Some(content_id));
+            if let Some(state) = self.templated_lists.get_mut(&list_id) {
+                if state.rows.len() < count {
+                    state.rows.resize_with(count, || None);
+                }
+                state.rows[row_idx] = Some(RealizedRow {
+                    rendered,
+                    content_id,
+                });
+            }
+
+            self.dispatch_appeared(content_id);
+        }
+
+        fn recycle_row_inner(&mut self, list_id: ControlId, row_idx: usize) {
+            let Some(existing) = self.clear_row_realized_state(list_id, row_idx) else {
+                return;
+            };
+
+            self.dispatch_disappeared(existing);
+            self.backend
+                .set_templated_row_content(list_id, row_idx, None);
+            if self.defer_templated_unmounts {
+                self.deferred_unmounts.push(existing);
+            } else {
+                self.unmount(existing);
+            }
+        }
+
+        fn clear_row_realized_state(
+            &mut self,
+            list_id: ControlId,
+            row_idx: usize,
+        ) -> Option<ControlId> {
+            let state = self.templated_lists.get_mut(&list_id)?;
+            let row = state.rows.get_mut(row_idx)?;
+            row.take().map(|r| r.content_id)
+        }
+
+        fn dispatch_appeared(&mut self, id: ControlId) {
+            if self.appeared_listener_count == 0 {
+                return;
+            }
+            let subtree = self.collect_subtree_ids(id);
+            for node in subtree {
+                if let Some(inst) = self.component_instances.get_mut(&node) {
+                    if !inst.last_obj.has_on_appeared() {
+                        continue;
+                    }
+                    inst.render_cx
+                        .set_context_stack(Rc::clone(&self.context_stack));
+                    inst.last_obj.invoke_appeared(&mut inst.render_cx);
+                }
+            }
+        }
+
+        fn dispatch_disappeared(&mut self, id: ControlId) {
+            if self.disappeared_listener_count == 0 {
+                return;
+            }
+            let subtree = self.collect_subtree_ids(id);
+            for node in subtree {
+                if let Some(inst) = self.component_instances.get_mut(&node) {
+                    if !inst.last_obj.has_on_disappeared() {
+                        continue;
+                    }
+                    inst.render_cx
+                        .set_context_stack(Rc::clone(&self.context_stack));
+                    inst.last_obj.invoke_disappeared(&mut inst.render_cx);
+                }
+            }
+        }
+
+        fn collect_subtree_ids(&self, id: ControlId) -> Vec<ControlId> {
+            let mut out = Vec::new();
+            let mut stack = vec![id];
+            while let Some(node) = stack.pop() {
+                out.push(node);
+                if let Some(children) = self.children_mirror.get(&node) {
+                    for child in children.iter().rev() {
+                        stack.push(*child);
+                    }
+                }
+            }
+            out
+        }
+    }
+}
+mod widget_dispatch {
+    use super::*;
+
+    impl<B: Backend + 'static> Reconciler<B> {
+        pub(crate) fn mount_widget(&mut self, w: &dyn Widget) -> ControlId {
+            let id = self.acquire_control(w.kind());
+            self.apply_props(id, &w.bindings());
+            self.apply_modifiers(id, w.modifiers());
+            self.apply_attached(id, w.attached());
+            self.mount_widget_children(id, w.children());
+            if let Some(hdr) = w.header_element()
+                && let Some(hdr_id) = self.mount(hdr)
+            {
+                self.backend.set_header_element(id, Some(hdr_id));
+                self.header_elements.insert(id, hdr_id);
+            }
+            if let Some(pane) = w.pane_element()
+                && let Some(pane_id) = self.mount(pane)
+            {
+                self.backend.set_pane_element(id, Some(pane_id));
+                self.pane_elements.insert(id, pane_id);
+            }
+            if let Some(cb) = w.on_mounted_callback() {
+                cb.invoke(self.backend.get_native_element(id));
+            }
+            if let Some(cb) = w.on_unmounted_callback() {
+                self.unmount_callbacks.insert(id, cb.clone());
+            }
+            id
+        }
+
+        pub(crate) fn update_widget(&mut self, old: &dyn Widget, new: &dyn Widget, id: ControlId) {
+            self.diff_props(id, &old.bindings(), &new.bindings());
+            self.diff_modifiers(id, old.modifiers(), new.modifiers());
+            self.diff_attached(id, old.attached(), new.attached());
+            self.update_widget_children(id, old.children(), new.children());
+            self.update_header_element(id, old.header_element(), new.header_element());
+            self.update_pane_element(id, old.pane_element(), new.pane_element());
+            if let Some(cb) = new.on_unmounted_callback() {
+                self.unmount_callbacks.insert(id, cb.clone());
+            } else {
+                self.unmount_callbacks.remove(&id);
+            }
+        }
+
+        fn mount_widget_children(&mut self, id: ControlId, children: Children<'_>) {
+            match children {
+                Children::None => {}
+                Children::PositionalSingle(child) => {
+                    if let Some(child_id) = self.mount(child) {
+                        self.append_child_tracked(id, child_id);
+                    }
+                }
+                Children::Keyed(list) => {
+                    for child in crate::reconcile::collect_live(list) {
+                        if let Some(child_id) = self.mount(child) {
+                            self.append_child_tracked(id, child_id);
+                        }
+                    }
+                }
+                Children::PivotItems(items) => {
+                    for item in items {
+                        self.mount_pivot_item(id, item);
+                    }
+                }
+            }
+        }
+
+        fn update_widget_children(&mut self, id: ControlId, old: Children<'_>, new: Children<'_>) {
+            match (old, new) {
+                (Children::None, Children::None) => {}
+                (Children::PositionalSingle(o), Children::PositionalSingle(n)) => {
+                    let oc = std::slice::from_ref(o);
+                    let nc = std::slice::from_ref(n);
+                    self.reconcile_children_positional(id, oc, nc);
+                }
+                (Children::Keyed(o), Children::Keyed(n)) => {
+                    self.reconcile_children(id, o, n);
+                }
+                (Children::PivotItems(o), Children::PivotItems(n)) => {
+                    self.reconcile_pivot_items(id, o, n);
+                }
+                _ => {
+                    debug_assert!(
+                        false,
+                        "update_widget_children: child-layout shape changed across update"
+                    );
+                }
+            }
+        }
+
+        fn update_header_element(
+            &mut self,
+            id: ControlId,
+            old: Option<&Element>,
+            new: Option<&Element>,
+        ) {
+            match (old, new) {
+                (None, None) => {}
+                (None, Some(hdr)) => {
+                    if let Some(hdr_id) = self.mount(hdr) {
+                        self.backend.set_header_element(id, Some(hdr_id));
+                        self.header_elements.insert(id, hdr_id);
+                    }
+                }
+                (Some(_), None) => {
+                    if let Some(hdr_id) = self.header_elements.remove(&id) {
+                        self.backend
+                            .set_header_element(id, Option::<ControlId>::None);
+                        self.unmount(hdr_id);
+                    }
+                }
+                (Some(old_el), Some(new_el)) => {
+                    // Reconcile in-place when possible to preserve focus/state.
+                    if let Some(hdr_id) = self.header_elements.get(&id).copied() {
+                        if old_el.kind_matches(new_el) {
+                            let new_id = self.update(old_el, new_el, hdr_id);
+                            match new_id {
+                                Some(nid) if nid != hdr_id => {
+                                    self.backend.set_header_element(id, Some(nid));
+                                    self.header_elements.insert(id, nid);
+                                }
+                                None => {
+                                    self.backend
+                                        .set_header_element(id, Option::<ControlId>::None);
+                                    self.header_elements.remove(&id);
+                                }
+                                _ => {}
+                            }
+                            return;
+                        }
+                        self.header_elements.remove(&id);
+                        self.unmount(hdr_id);
+                    }
+                    if let Some(hdr_id) = self.mount(new_el) {
+                        self.backend.set_header_element(id, Some(hdr_id));
+                        self.header_elements.insert(id, hdr_id);
+                    }
+                }
+            }
+        }
+
+        fn update_pane_element(
+            &mut self,
+            id: ControlId,
+            old: Option<&Element>,
+            new: Option<&Element>,
+        ) {
+            match (old, new) {
+                (None, None) => {}
+                (None, Some(pane)) => {
+                    if let Some(pane_id) = self.mount(pane) {
+                        self.backend.set_pane_element(id, Some(pane_id));
+                        self.pane_elements.insert(id, pane_id);
+                    }
+                }
+                (Some(_), None) => {
+                    if let Some(pane_id) = self.pane_elements.remove(&id) {
+                        self.backend.set_pane_element(id, Option::<ControlId>::None);
+                        self.unmount(pane_id);
+                    }
+                }
+                (Some(old_el), Some(new_el)) => {
+                    // Reconcile in-place when possible to preserve focus/state.
+                    if let Some(pane_id) = self.pane_elements.get(&id).copied() {
+                        if old_el.kind_matches(new_el) {
+                            let new_id = self.update(old_el, new_el, pane_id);
+                            match new_id {
+                                Some(nid) if nid != pane_id => {
+                                    self.backend.set_pane_element(id, Some(nid));
+                                    self.pane_elements.insert(id, nid);
+                                }
+                                None => {
+                                    self.backend.set_pane_element(id, Option::<ControlId>::None);
+                                    self.pane_elements.remove(&id);
+                                }
+                                _ => {}
+                            }
+                            return;
+                        }
+                        self.pane_elements.remove(&id);
+                        self.unmount(pane_id);
+                    }
+                    if let Some(pane_id) = self.mount(new_el) {
+                        self.backend.set_pane_element(id, Some(pane_id));
+                        self.pane_elements.insert(id, pane_id);
+                    }
+                }
+            }
+        }
+
+        fn mount_pivot_item(&mut self, parent: ControlId, item: &PivotItem) {
+            let item_id = self.acquire_control(crate::ir::ControlKind::PivotItem);
+            self.backend.set_prop(
+                item_id,
+                Prop::ItemHeader,
+                &PropValue::Str(item.header.clone()),
+            );
+            if let Some(content_id) = self.mount(&item.content) {
+                self.append_child_tracked(item_id, content_id);
+            }
+            self.append_child_tracked(parent, item_id);
+        }
+
+        fn reconcile_pivot_items(
+            &mut self,
+            parent: ControlId,
+            old: &[PivotItem],
+            new: &[PivotItem],
+        ) {
+            let common = old.len().min(new.len());
+
+            for i in 0..common {
+                let Some(item_id) = self.child_at(parent, i) else {
+                    continue;
+                };
+                let o = &old[i];
+                let n = &new[i];
+                if o.header != n.header {
+                    self.backend.set_prop(
+                        item_id,
+                        Prop::ItemHeader,
+                        &PropValue::Str(n.header.clone()),
+                    );
+                }
+                let oc = std::slice::from_ref(&o.content);
+                let nc = std::slice::from_ref(&n.content);
+                self.reconcile_children_positional(item_id, oc, nc);
+            }
+
+            if new.len() > old.len() {
+                for n in &new[old.len()..] {
+                    self.mount_pivot_item(parent, n);
+                }
+            }
+
+            while self.child_at(parent, new.len()).is_some() {
+                let extra_id = self.child_at(parent, new.len()).unwrap();
+                self.remove_child_tracked(parent, new.len());
+                self.unmount(extra_id);
+            }
+        }
+
+        pub(crate) fn apply_attached(&mut self, id: ControlId, attached: Option<&AttachedProps>) {
+            let Some(att) = attached else { return };
+            // GridPlacement is now on Modifiers::grid — handled by apply_modifiers.
+            if let Some(p) = att.get::<crate::widgets::CanvasPosition>() {
+                self.apply_canvas_position(id, *p);
+            }
+            if let Some(p) = att.get::<crate::widgets::RelativePanelAlignment>() {
+                self.apply_relative_panel_alignment(id, *p);
+            }
+        }
+
+        pub(crate) fn apply_grid_placement(&mut self, id: ControlId, p: GridPlacement) {
+            if p.row != 0 {
+                self.backend
+                    .set_prop(id, Prop::AttachedGridRow, &PropValue::I32(p.row));
+            }
+            if p.column != 0 {
+                self.backend
+                    .set_prop(id, Prop::AttachedGridColumn, &PropValue::I32(p.column));
+            }
+            if p.row_span > 1 {
+                self.backend
+                    .set_prop(id, Prop::AttachedGridRowSpan, &PropValue::I32(p.row_span));
+            }
+            if p.column_span > 1 {
+                self.backend.set_prop(
+                    id,
+                    Prop::AttachedGridColumnSpan,
+                    &PropValue::I32(p.column_span),
+                );
+            }
+        }
+
+        /// Unconditionally emits all four grid attached props — used in the diff
+        /// path to clear stale values when placement changes or is removed.
+        pub(crate) fn apply_grid_placement_full(&mut self, id: ControlId, p: GridPlacement) {
+            self.backend
+                .set_prop(id, Prop::AttachedGridRow, &PropValue::I32(p.row));
+            self.backend
+                .set_prop(id, Prop::AttachedGridColumn, &PropValue::I32(p.column));
+            self.backend
+                .set_prop(id, Prop::AttachedGridRowSpan, &PropValue::I32(p.row_span));
+            self.backend.set_prop(
+                id,
+                Prop::AttachedGridColumnSpan,
+                &PropValue::I32(p.column_span),
+            );
+        }
+
+        pub(crate) fn apply_canvas_position(
+            &mut self,
+            id: ControlId,
+            p: crate::widgets::CanvasPosition,
+        ) {
+            // Canvas defaults are 0.0 — only emit when non-zero on mount;
+            // the diff path always emits to overwrite the previous value.
+            if p.left != 0.0 {
+                self.backend
+                    .set_prop(id, Prop::AttachedCanvasLeft, &PropValue::F64(p.left));
+            }
+            if p.top != 0.0 {
+                self.backend
+                    .set_prop(id, Prop::AttachedCanvasTop, &PropValue::F64(p.top));
+            }
+            if p.z_index != 0 {
+                self.backend
+                    .set_prop(id, Prop::AttachedCanvasZIndex, &PropValue::I32(p.z_index));
+            }
+        }
+
+        pub(crate) fn diff_attached(
+            &mut self,
+            id: ControlId,
+            old: Option<&AttachedProps>,
+            new: Option<&AttachedProps>,
+        ) {
+            // GridPlacement is now on Modifiers::grid — handled by diff_modifiers.
+
+            let old_canvas = old
+                .and_then(|a| a.get::<crate::widgets::CanvasPosition>())
+                .copied();
+            let new_canvas = new
+                .and_then(|a| a.get::<crate::widgets::CanvasPosition>())
+                .copied();
+            if old_canvas != new_canvas {
+                let p = new_canvas.unwrap_or_default();
+                self.backend
+                    .set_prop(id, Prop::AttachedCanvasLeft, &PropValue::F64(p.left));
+                self.backend
+                    .set_prop(id, Prop::AttachedCanvasTop, &PropValue::F64(p.top));
+                self.backend
+                    .set_prop(id, Prop::AttachedCanvasZIndex, &PropValue::I32(p.z_index));
+            }
+
+            let old_rp = old
+                .and_then(|a| a.get::<crate::widgets::RelativePanelAlignment>())
+                .copied();
+            let new_rp = new
+                .and_then(|a| a.get::<crate::widgets::RelativePanelAlignment>())
+                .copied();
+            if old_rp != new_rp {
+                let p = new_rp.unwrap_or_default();
+                self.apply_relative_panel_alignment_full(id, p);
+            }
+        }
+
+        pub(crate) fn apply_relative_panel_alignment(
+            &mut self,
+            id: ControlId,
+            p: crate::widgets::RelativePanelAlignment,
+        ) {
+            if p.align_left_with_panel {
+                self.backend
+                    .set_prop(id, Prop::AlignLeftWithPanel, &PropValue::Bool(true));
+            }
+            if p.align_right_with_panel {
+                self.backend
+                    .set_prop(id, Prop::AlignRightWithPanel, &PropValue::Bool(true));
+            }
+            if p.align_top_with_panel {
+                self.backend
+                    .set_prop(id, Prop::AlignTopWithPanel, &PropValue::Bool(true));
+            }
+            if p.align_bottom_with_panel {
+                self.backend
+                    .set_prop(id, Prop::AlignBottomWithPanel, &PropValue::Bool(true));
+            }
+            if p.align_h_center_with_panel {
+                self.backend
+                    .set_prop(id, Prop::AlignHCenterWithPanel, &PropValue::Bool(true));
+            }
+            if p.align_v_center_with_panel {
+                self.backend
+                    .set_prop(id, Prop::AlignVCenterWithPanel, &PropValue::Bool(true));
+            }
+        }
+
+        fn apply_relative_panel_alignment_full(
+            &mut self,
+            id: ControlId,
+            p: crate::widgets::RelativePanelAlignment,
+        ) {
+            self.backend.set_prop(
+                id,
+                Prop::AlignLeftWithPanel,
+                &PropValue::Bool(p.align_left_with_panel),
+            );
+            self.backend.set_prop(
+                id,
+                Prop::AlignRightWithPanel,
+                &PropValue::Bool(p.align_right_with_panel),
+            );
+            self.backend.set_prop(
+                id,
+                Prop::AlignTopWithPanel,
+                &PropValue::Bool(p.align_top_with_panel),
+            );
+            self.backend.set_prop(
+                id,
+                Prop::AlignBottomWithPanel,
+                &PropValue::Bool(p.align_bottom_with_panel),
+            );
+            self.backend.set_prop(
+                id,
+                Prop::AlignHCenterWithPanel,
+                &PropValue::Bool(p.align_h_center_with_panel),
+            );
+            self.backend.set_prop(
+                id,
+                Prop::AlignVCenterWithPanel,
+                &PropValue::Bool(p.align_v_center_with_panel),
+            );
+        }
+    }
+}
+mod wrappers {
+    use std::panic::AssertUnwindSafe;
+    use std::rc::Rc;
+
+    use super::*;
+
+    impl<B: Backend + 'static> Reconciler<B> {
+        pub(crate) fn mount_component(&mut self, ce: &ComponentElement) -> Option<ControlId> {
+            let mut cx = RenderCx::new(Rc::clone(&self.request_rerender));
+            cx.set_context_stack(self.context_stack_handle());
+            cx.set_marshaller(self.marshaller.clone());
+            cx.set_inner_size_cell(Rc::clone(&self.inner_size));
+            cx.set_dpi_cell(Rc::clone(&self.dpi));
+            cx.begin_render();
+            let rendered = ce.obj.render(&mut cx);
+            cx.flush_effects();
+            let read_contexts = cx.take_read_contexts();
+
+            let rendered_id = self.mount(&rendered)?;
+            self.register_component_instance(
+                rendered_id,
+                ComponentInstance {
+                    render_cx: cx,
+                    last_rendered: rendered,
+                    last_obj: Rc::clone(&ce.obj),
+                    read_contexts,
+                },
+            );
+            Some(rendered_id)
+        }
+
+        pub(crate) fn update_component(
+            &mut self,
+            old: &ComponentElement,
+            new: &ComponentElement,
+            id: ControlId,
+        ) -> Option<ControlId> {
+            if old.obj.component_type_id() != new.obj.component_type_id() {
+                self.unmount(id);
+                return self.mount_component(new);
+            }
+
+            let forced_by_context = self.forced_components.contains(&id);
+            let state_dirty = self
+                .component_instances
+                .get(&id)
+                .is_some_and(|inst| inst.render_cx.take_state_dirty());
+            let needs_update = if forced_by_context || state_dirty {
+                true
+            } else if new.memoised {
+                !old.obj.is_equivalent(&*new.obj)
+            } else {
+                old.obj.should_update(&*new.obj)
+            };
+
+            if !needs_update {
+                if let Some(inst) = self.component_instances.get_mut(&id) {
+                    inst.last_obj = Rc::clone(&new.obj);
+                }
+                return Some(id);
+            }
+
+            let Some(mut inst) = self.take_component_instance(id) else {
+                return self.mount_component(new);
+            };
+
+            inst.render_cx
+                .set_context_stack(self.context_stack_handle());
+            inst.render_cx
+                .set_inner_size_cell(Rc::clone(&self.inner_size));
+            inst.render_cx.set_dpi_cell(Rc::clone(&self.dpi));
+            inst.render_cx.begin_render();
+            let rendered = new.obj.render(&mut inst.render_cx);
+            inst.render_cx.flush_effects();
+            inst.read_contexts = inst.render_cx.take_read_contexts();
+
+            let new_id = self.update(&inst.last_rendered, &rendered, id);
+
+            inst.last_rendered = rendered;
+            inst.last_obj = Rc::clone(&new.obj);
+
+            if let Some(nid) = new_id {
+                self.register_component_instance(nid, inst);
+                Some(nid)
+            } else {
+                inst.render_cx.run_cleanups();
+                None
+            }
+        }
+
+        pub(crate) fn mount_error_boundary(
+            &mut self,
+            eb: &ErrorBoundaryElement,
+        ) -> Option<ControlId> {
+            let _expect = crate::diagnostics::ExpectPanicGuard::new();
+            let result = std::panic::catch_unwind(AssertUnwindSafe(|| self.mount(&eb.child)));
+            match result {
+                Ok(id) => id,
+                Err(payload) => {
+                    let msg = panic_message(payload);
+                    let fallback = eb.fallback.invoke(&msg);
+                    let id = self.mount(&fallback);
+                    if let Some(id) = id {
+                        self.error_boundary_fallbacks.insert(id);
+                    }
+                    id
+                }
+            }
+        }
+
+        pub(crate) fn update_error_boundary(
+            &mut self,
+            old: &ErrorBoundaryElement,
+            new: &ErrorBoundaryElement,
+            id: ControlId,
+        ) -> Option<ControlId> {
+            if self.error_boundary_fallbacks.remove(&id) {
+                self.unmount(id);
+                let _expect = crate::diagnostics::ExpectPanicGuard::new();
+                let result = std::panic::catch_unwind(AssertUnwindSafe(|| self.mount(&new.child)));
+                return match result {
+                    Ok(nid) => nid,
+                    Err(payload) => {
+                        let msg = panic_message(payload);
+                        let fallback = new.fallback.invoke(&msg);
+                        let nid = self.mount(&fallback);
+                        if let Some(nid) = nid {
+                            self.error_boundary_fallbacks.insert(nid);
+                        }
+                        nid
+                    }
+                };
+            }
+
+            let _expect = crate::diagnostics::ExpectPanicGuard::new();
+            let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                self.update(&old.child, &new.child, id)
+            }));
+            match result {
+                Ok(nid) => nid,
+                Err(payload) => {
+                    let msg = panic_message(payload);
+                    let fallback = new.fallback.invoke(&msg);
+                    self.unmount(id);
+                    let nid = self.mount(&fallback);
+                    if let Some(nid) = nid {
+                        self.error_boundary_fallbacks.insert(nid);
+                    }
+                    nid
+                }
+            }
+        }
+
+        pub(crate) fn mount_provider(&mut self, p: &ProviderElement) -> Option<ControlId> {
+            let pushed = self.push_provisions(&p.provisions);
+            let result = std::panic::catch_unwind(AssertUnwindSafe(|| self.mount(&p.child)));
+            self.pop_provisions(pushed);
+            match result {
+                Ok(id) => id,
+                Err(payload) => std::panic::resume_unwind(payload),
+            }
+        }
+
+        pub(crate) fn update_provider(
+            &mut self,
+            old: &ProviderElement,
+            new: &ProviderElement,
+            id: ControlId,
+        ) -> Option<ControlId> {
+            let mut changed_ids: rustc_hash::FxHashSet<crate::context::ContextId> =
+                rustc_hash::FxHashSet::default();
+
+            let mut old_by_id: rustc_hash::FxHashMap<
+                crate::context::ContextId,
+                &crate::context::ContextProvision,
+            > = rustc_hash::FxHashMap::default();
+            for p in &old.provisions {
+                old_by_id.insert(p.context_id, p);
+            }
+            for new_p in &new.provisions {
+                match old_by_id.remove(&new_p.context_id) {
+                    None => {
+                        changed_ids.insert(new_p.context_id);
+                    }
+                    Some(old_p) => {
+                        if old_p != new_p {
+                            changed_ids.insert(new_p.context_id);
+                        }
+                    }
+                }
+            }
+
+            for old_id in old_by_id.into_keys() {
+                changed_ids.insert(old_id);
+            }
+
+            let prev_flag = self.force_component_rerender;
+            let saved_forced = self.forced_components.clone();
+            if !changed_ids.is_empty() {
+                let affected = self.collect_affected_components(id, &changed_ids);
+                if !affected.is_empty() {
+                    self.force_component_rerender = true;
+                    self.forced_components.extend(affected);
+                }
+            }
+
+            let pushed = self.push_provisions(&new.provisions);
+            let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                self.update(&old.child, &new.child, id)
+            }));
+            self.pop_provisions(pushed);
+
+            self.forced_components = saved_forced;
+            self.force_component_rerender = prev_flag;
+
+            match result {
+                Ok(nid) => nid,
+                Err(payload) => std::panic::resume_unwind(payload),
+            }
+        }
+
+        fn push_provisions(&self, provisions: &[crate::context::ContextProvision]) -> usize {
+            for p in provisions {
+                self.context_stack.push_raw_retain(
+                    p.context_id,
+                    p.value_type_id,
+                    Rc::clone(&p.value),
+                );
+            }
+            provisions.len()
+        }
+
+        fn pop_provisions(&self, count: usize) {
+            for _ in 0..count {
+                self.context_stack.pop_raw();
+            }
+        }
+
+        pub(crate) fn mount_custom(&mut self, c: &crate::custom::CustomElementHandle) -> ControlId {
+            self.debug_ui_elements_created += 1;
+            let id = c.0.mount(&mut self.backend);
+            self.custom_handles.insert(id, c.0.clone_dyn());
+            id
+        }
+
+        pub(crate) fn update_custom(
+            &mut self,
+            old: &crate::custom::CustomElementHandle,
+            new: &crate::custom::CustomElementHandle,
+            id: ControlId,
+        ) -> ControlId {
+            debug_assert_eq!(
+                crate::custom::CustomElement::type_id(&*old.0),
+                crate::custom::CustomElement::type_id(&*new.0),
+                "update_custom invoked across different CustomElement types — \
+             reconciler should have unmount+remount via kind_matches",
+            );
+            if !old.0.eq_dyn(&*new.0) {
+                new.0.update(&*old.0, id, &mut self.backend);
+                self.custom_handles.insert(id, new.0.clone_dyn());
+            }
+            id
+        }
+    }
+}
 
 pub(crate) use self::templated::TemplatedListState;
 pub use self::templated::{RealizationQueue, new_realization_queue};

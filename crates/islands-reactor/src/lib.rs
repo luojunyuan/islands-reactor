@@ -15,7 +15,7 @@ mod application;
 mod component;
 pub mod declaration;
 pub mod dsl;
-mod generated;
+mod generated_declarations;
 mod ir;
 mod reconcile;
 mod window;
@@ -37,7 +37,7 @@ pub(crate) use declaration::visual_modifiers as modifiers;
 #[allow(unused_imports)]
 pub(crate) use declaration::*;
 #[allow(unused_imports)]
-pub(crate) use generated::*;
+pub(crate) use generated_declarations::*;
 #[allow(unused_imports)]
 pub(crate) use ir::*;
 #[allow(unused_imports)]
