@@ -1,13 +1,13 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use rustc_hash::FxHashMap;
+use std::collections::HashMap;
 
 pub(crate) use super::*;
 
 mod child {
-    use rustc_hash::{FxHashMap, FxHashSet};
     use std::borrow::Cow;
+    use std::collections::{HashMap, HashSet};
 
     use super::*;
 
@@ -273,7 +273,7 @@ mod child {
         new_mid_len: usize,
         prefix: usize,
     ) {
-        let mut old_key_map: FxHashMap<Cow<'_, str>, usize> = FxHashMap::default();
+        let mut old_key_map: HashMap<Cow<'_, str>, usize> = HashMap::default();
         old_key_map.reserve(old_mid_len);
         for i in 0..old_mid_len {
             let el = old.get(old_start + i).unwrap();
@@ -296,7 +296,7 @@ mod child {
             }
         }
 
-        let lis: FxHashSet<usize> = compute_lis(&new_to_old);
+        let lis: HashSet<usize> = compute_lis(&new_to_old);
 
         for i in (0..old_mid_len).rev() {
             if !matched[i] {
@@ -308,7 +308,7 @@ mod child {
             }
         }
 
-        let mut key_to_panel: FxHashMap<Cow<'_, str>, usize> = FxHashMap::default();
+        let mut key_to_panel: HashMap<Cow<'_, str>, usize> = HashMap::default();
         {
             let mut panel_idx = prefix;
             for i in 0..old_mid_len {
@@ -409,10 +409,10 @@ mod child {
         }
     }
 
-    pub(crate) fn compute_lis(arr: &[i32]) -> FxHashSet<usize> {
+    pub(crate) fn compute_lis(arr: &[i32]) -> HashSet<usize> {
         let n = arr.len();
         if n == 0 {
-            return FxHashSet::default();
+            return HashSet::default();
         }
 
         let mut tails: Vec<i32> = Vec::new();
@@ -448,7 +448,7 @@ mod child {
             }
         }
 
-        let mut result: FxHashSet<usize> = FxHashSet::default();
+        let mut result: HashSet<usize> = HashSet::default();
         if tail_idx.is_empty() {
             return result;
         }
@@ -588,8 +588,8 @@ mod child {
                 .unwrap();
 
             // Snapshot (id -> kind) from the mount-phase ops.
-            let mut kind_of: rustc_hash::FxHashMap<crate::ir::ControlId, ControlKind> =
-                rustc_hash::FxHashMap::default();
+            let mut kind_of: std::collections::HashMap<crate::ir::ControlId, ControlKind> =
+                std::collections::HashMap::default();
             for op in &reconciler.backend.ops {
                 if let Op::Create { id, kind } = op {
                     kind_of.insert(*id, *kind);
@@ -647,8 +647,8 @@ mod child {
 
             // 2. After reconciliation, every button control still carries
             //    the label that matches its original key.
-            let mut latest_label: rustc_hash::FxHashMap<crate::ir::ControlId, String> =
-                rustc_hash::FxHashMap::default();
+            let mut latest_label: std::collections::HashMap<crate::ir::ControlId, String> =
+                std::collections::HashMap::default();
             for op in &reconciler.backend.ops {
                 if let Op::SetProp {
                     id,
@@ -1697,13 +1697,13 @@ mod wrappers {
             new: &ProviderElement,
             id: ControlId,
         ) -> Option<ControlId> {
-            let mut changed_ids: rustc_hash::FxHashSet<crate::context::ContextId> =
-                rustc_hash::FxHashSet::default();
+            let mut changed_ids: std::collections::HashSet<crate::context::ContextId> =
+                std::collections::HashSet::default();
 
-            let mut old_by_id: rustc_hash::FxHashMap<
+            let mut old_by_id: std::collections::HashMap<
                 crate::context::ContextId,
                 &crate::context::ContextProvision,
-            > = rustc_hash::FxHashMap::default();
+            > = std::collections::HashMap::default();
             for p in &old.provisions {
                 old_by_id.insert(p.context_id, p);
             }
@@ -1807,31 +1807,30 @@ pub struct Reconciler<B: Backend> {
     pub debug_elements_skipped: u64,
     pub debug_elements_diffed: u64,
     pub debug_ui_elements_created: u64,
-    pub(crate) children_mirror: FxHashMap<ControlId, Vec<ControlId>>,
-    pub(crate) id_kinds: FxHashMap<ControlId, ControlKind>,
+    pub(crate) children_mirror: HashMap<ControlId, Vec<ControlId>>,
+    pub(crate) id_kinds: HashMap<ControlId, ControlKind>,
     pub(crate) context_stack: Rc<ContextStack>,
-    pub(crate) component_instances: FxHashMap<ControlId, ComponentInstance>,
+    pub(crate) component_instances: HashMap<ControlId, ComponentInstance>,
     pub(crate) appeared_listener_count: usize,
     pub(crate) disappeared_listener_count: usize,
     pub(crate) force_component_rerender: bool,
-    pub(crate) forced_components: rustc_hash::FxHashSet<ControlId>,
-    pub(crate) error_boundary_fallbacks: rustc_hash::FxHashSet<ControlId>,
-    pub(crate) templated_lists: FxHashMap<ControlId, TemplatedListState>,
-    pub(crate) custom_handles: FxHashMap<ControlId, Box<dyn crate::custom::CustomElement>>,
+    pub(crate) forced_components: std::collections::HashSet<ControlId>,
+    pub(crate) error_boundary_fallbacks: std::collections::HashSet<ControlId>,
+    pub(crate) templated_lists: HashMap<ControlId, TemplatedListState>,
+    pub(crate) custom_handles: HashMap<ControlId, Box<dyn crate::custom::CustomElement>>,
     pub eager_templated_realization: bool,
     pub defer_templated_unmounts: bool,
     pub(crate) deferred_unmounts: Vec<ControlId>,
     pub realization_queue: RealizationQueue,
-    pub(crate) selection_callbacks: FxHashMap<ControlId, Rc<RefCell<Option<Callback<i32>>>>>,
+    pub(crate) selection_callbacks: HashMap<ControlId, Rc<RefCell<Option<Callback<i32>>>>>,
     /// Pre-unmount callbacks keyed by control id, invoked with the native
     /// element (or `None`) just before the control is destroyed (see
     /// [`Widget::on_unmounted_callback`]).
-    pub(crate) unmount_callbacks:
-        FxHashMap<ControlId, Callback<Option<windows_core::IInspectable>>>,
+    pub(crate) unmount_callbacks: HashMap<ControlId, Callback<Option<windows_core::IInspectable>>>,
     /// Tracks header element control IDs for widgets that use header_element().
-    pub(crate) header_elements: FxHashMap<ControlId, ControlId>,
+    pub(crate) header_elements: HashMap<ControlId, ControlId>,
     /// Tracks pane element control IDs for widgets that use pane_element().
-    pub(crate) pane_elements: FxHashMap<ControlId, ControlId>,
+    pub(crate) pane_elements: HashMap<ControlId, ControlId>,
     /// UI marshaller propagated into every nested component's
     /// [`RenderCx`] for [`RenderCx::use_async_state`].
     pub(crate) marshaller: Option<UiMarshaller>,
@@ -1846,7 +1845,7 @@ pub(crate) struct ComponentInstance {
     pub(crate) render_cx: RenderCx,
     pub(crate) last_rendered: Element,
     pub(crate) last_obj: Rc<dyn crate::component_element::ComponentObject>,
-    pub(crate) read_contexts: rustc_hash::FxHashSet<ContextId>,
+    pub(crate) read_contexts: std::collections::HashSet<ContextId>,
 }
 
 impl<B: Backend + 'static> Reconciler<B> {
@@ -1856,22 +1855,22 @@ impl<B: Backend + 'static> Reconciler<B> {
             debug_elements_skipped: 0,
             debug_elements_diffed: 0,
             debug_ui_elements_created: 0,
-            children_mirror: FxHashMap::default(),
-            id_kinds: FxHashMap::default(),
+            children_mirror: HashMap::default(),
+            id_kinds: HashMap::default(),
             context_stack: Rc::new(ContextStack::new()),
-            component_instances: FxHashMap::default(),
+            component_instances: HashMap::default(),
             appeared_listener_count: 0,
             disappeared_listener_count: 0,
             force_component_rerender: false,
-            forced_components: rustc_hash::FxHashSet::default(),
-            error_boundary_fallbacks: rustc_hash::FxHashSet::default(),
-            templated_lists: FxHashMap::default(),
-            custom_handles: FxHashMap::default(),
+            forced_components: std::collections::HashSet::default(),
+            error_boundary_fallbacks: std::collections::HashSet::default(),
+            templated_lists: HashMap::default(),
+            custom_handles: HashMap::default(),
             realization_queue: new_realization_queue(),
-            selection_callbacks: FxHashMap::default(),
-            unmount_callbacks: FxHashMap::default(),
-            header_elements: FxHashMap::default(),
-            pane_elements: FxHashMap::default(),
+            selection_callbacks: HashMap::default(),
+            unmount_callbacks: HashMap::default(),
+            header_elements: HashMap::default(),
+            pane_elements: HashMap::default(),
             eager_templated_realization: false,
             defer_templated_unmounts: false,
             deferred_unmounts: Vec::new(),
@@ -2522,7 +2521,7 @@ impl<B: Backend + 'static> Reconciler<B> {
     pub(crate) fn collect_affected_components(
         &self,
         root_id: ControlId,
-        changed: &rustc_hash::FxHashSet<ContextId>,
+        changed: &std::collections::HashSet<ContextId>,
     ) -> Vec<ControlId> {
         let mut result = Vec::new();
         let mut stack = vec![root_id];
@@ -2578,7 +2577,7 @@ impl<B: Backend + 'static> Reconciler<B> {
     pub(crate) fn force_context_subscribers(
         &mut self,
         root_id: ControlId,
-        context_ids: &rustc_hash::FxHashSet<ContextId>,
+        context_ids: &std::collections::HashSet<ContextId>,
     ) {
         let affected = self.collect_affected_components(root_id, context_ids);
         if !affected.is_empty() {

@@ -165,7 +165,7 @@ pub(crate) mod context {
     use std::rc::Rc;
     use std::sync::atomic::{AtomicU32, Ordering};
 
-    use rustc_hash::FxHashMap;
+    use std::collections::HashMap;
 
     use super::element::Element;
 
@@ -219,7 +219,7 @@ pub(crate) mod context {
 
     #[derive(Default)]
     pub struct ContextStack {
-        entries: std::cell::RefCell<FxHashMap<ContextId, Vec<ContextEntry>>>,
+        entries: std::cell::RefCell<HashMap<ContextId, Vec<ContextEntry>>>,
         push_order: std::cell::RefCell<Vec<ContextId>>,
     }
 
@@ -665,7 +665,7 @@ pub(crate) mod render_context {
     use std::sync::{Arc, Mutex, OnceLock};
     use std::thread::{self, ThreadId};
 
-    use rustc_hash::FxHashSet;
+    use std::collections::HashSet;
 
     use super::*;
 
@@ -934,7 +934,7 @@ pub(crate) mod render_context {
         state_dirty: Arc<AtomicBool>,
         ui_thread: Option<ThreadId>,
         context_stack: Option<Rc<ContextStack>>,
-        read_contexts: RefCell<FxHashSet<ContextId>>,
+        read_contexts: RefCell<HashSet<ContextId>>,
         /// `Send + Sync` handle to the UI thread's render-aware dispatcher,
         /// populated by the host for [`Self::use_ui_marshaller`] /
         /// [`Self::use_async_state`].
@@ -966,14 +966,14 @@ pub(crate) mod render_context {
                 state_dirty: Arc::new(AtomicBool::new(false)),
                 ui_thread: None,
                 context_stack: None,
-                read_contexts: RefCell::new(FxHashSet::default()),
+                read_contexts: RefCell::new(HashSet::default()),
                 marshaller: None,
                 inner_size: Rc::new(Cell::new(Size::default())),
                 dpi: Rc::new(Cell::new(96)),
             }
         }
 
-        pub fn take_read_contexts(&mut self) -> FxHashSet<ContextId> {
+        pub fn take_read_contexts(&mut self) -> HashSet<ContextId> {
             std::mem::take(&mut *self.read_contexts.borrow_mut())
         }
 

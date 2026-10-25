@@ -1,7 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use rustc_hash::FxHashMap;
+use std::collections::HashMap;
 use windows_core::{IInspectable, Interface, Result};
 
 use crate::bindings as Xaml;
@@ -13,14 +13,14 @@ mod generated;
 
 /// Backend that creates native `Windows.UI.Xaml` controls for XAML Islands.
 pub struct WinUIBackend {
-    controls: RefCell<FxHashMap<ControlId, Handle>>,
-    event_revokers: RefCell<FxHashMap<(ControlId, Event), Vec<EventSubscription>>>,
-    templated_selection_revokers: RefCell<FxHashMap<ControlId, EventSubscription>>,
-    templated_realizers: RefCell<FxHashMap<ControlId, Rc<dyn Fn(usize)>>>,
-    parent_children: RefCell<FxHashMap<ControlId, Vec<ControlId>>>,
-    templated_rows: RefCell<FxHashMap<ControlId, Vec<Option<ControlId>>>>,
-    templated_selected_indices: RefCell<FxHashMap<ControlId, i32>>,
-    theme_brush_registry: RefCell<FxHashMap<ControlId, Vec<(Prop, crate::theme::ThemeRef)>>>,
+    controls: RefCell<HashMap<ControlId, Handle>>,
+    event_revokers: RefCell<HashMap<(ControlId, Event), Vec<EventSubscription>>>,
+    templated_selection_revokers: RefCell<HashMap<ControlId, EventSubscription>>,
+    templated_realizers: RefCell<HashMap<ControlId, Rc<dyn Fn(usize)>>>,
+    parent_children: RefCell<HashMap<ControlId, Vec<ControlId>>>,
+    templated_rows: RefCell<HashMap<ControlId, Vec<Option<ControlId>>>>,
+    templated_selected_indices: RefCell<HashMap<ControlId, i32>>,
+    theme_brush_registry: RefCell<HashMap<ControlId, Vec<(Prop, crate::theme::ThemeRef)>>>,
     next_id: RefCell<u32>,
 }
 
@@ -33,14 +33,14 @@ impl Default for WinUIBackend {
 impl WinUIBackend {
     pub fn new() -> Self {
         Self {
-            controls: RefCell::new(FxHashMap::default()),
-            event_revokers: RefCell::new(FxHashMap::default()),
-            templated_selection_revokers: RefCell::new(FxHashMap::default()),
-            templated_realizers: RefCell::new(FxHashMap::default()),
-            parent_children: RefCell::new(FxHashMap::default()),
-            templated_rows: RefCell::new(FxHashMap::default()),
-            templated_selected_indices: RefCell::new(FxHashMap::default()),
-            theme_brush_registry: RefCell::new(FxHashMap::default()),
+            controls: RefCell::new(HashMap::default()),
+            event_revokers: RefCell::new(HashMap::default()),
+            templated_selection_revokers: RefCell::new(HashMap::default()),
+            templated_realizers: RefCell::new(HashMap::default()),
+            parent_children: RefCell::new(HashMap::default()),
+            templated_rows: RefCell::new(HashMap::default()),
+            templated_selected_indices: RefCell::new(HashMap::default()),
+            theme_brush_registry: RefCell::new(HashMap::default()),
             next_id: RefCell::new(0),
         }
     }

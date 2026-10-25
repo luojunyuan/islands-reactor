@@ -639,21 +639,22 @@ pub enum Op {
 pub struct RecordingBackend {
     pub ops: Vec<Op>,
     next_id: u32,
-    children: rustc_hash::FxHashMap<ControlId, Vec<ControlId>>,
-    handlers: rustc_hash::FxHashMap<(ControlId, Event), EventHandler>,
-    row_contents: rustc_hash::FxHashMap<ControlId, rustc_hash::FxHashMap<usize, ControlId>>,
-    item_counts: rustc_hash::FxHashMap<ControlId, usize>,
-    realization_handlers: rustc_hash::FxHashMap<ControlId, (Rc<dyn Fn(usize)>, Rc<dyn Fn(usize)>)>,
-    selection_handlers: rustc_hash::FxHashMap<ControlId, Callback<i32>>,
-    theme_style_cache: rustc_hash::FxHashSet<(ControlKind, Vec<(Prop, ThemeRef)>)>,
-    theme_bindings_live: rustc_hash::FxHashMap<ControlId, Vec<(Prop, ThemeRef)>>,
+    children: std::collections::HashMap<ControlId, Vec<ControlId>>,
+    handlers: std::collections::HashMap<(ControlId, Event), EventHandler>,
+    row_contents: std::collections::HashMap<ControlId, std::collections::HashMap<usize, ControlId>>,
+    item_counts: std::collections::HashMap<ControlId, usize>,
+    realization_handlers:
+        std::collections::HashMap<ControlId, (Rc<dyn Fn(usize)>, Rc<dyn Fn(usize)>)>,
+    selection_handlers: std::collections::HashMap<ControlId, Callback<i32>>,
+    theme_style_cache: std::collections::HashSet<(ControlKind, Vec<(Prop, ThemeRef)>)>,
+    theme_bindings_live: std::collections::HashMap<ControlId, Vec<(Prop, ThemeRef)>>,
     /// A stand-in [`IInspectable`] fabricated for every control so that
     /// [`get_native_element`](Backend::get_native_element) returns `Some`,
     /// mirroring the real WinUI backend (which returns the live XAML element).
     /// This lets `on_mounted` / `on_unmounted` callbacks fire in tests. The
     /// entry is removed in [`destroy`](Backend::destroy), so a destroyed
     /// control reports `None` again.
-    native_elements: rustc_hash::FxHashMap<ControlId, windows_core::IInspectable>,
+    native_elements: std::collections::HashMap<ControlId, windows_core::IInspectable>,
 }
 
 /// Builds a stand-in native [`IInspectable`] for [`RecordingBackend`]. Any
@@ -741,7 +742,10 @@ impl RecordingBackend {
         h.invoke_timespan(ts);
     }
 
-    pub fn row_contents_of(&self, list_id: ControlId) -> rustc_hash::FxHashMap<usize, ControlId> {
+    pub fn row_contents_of(
+        &self,
+        list_id: ControlId,
+    ) -> std::collections::HashMap<usize, ControlId> {
         self.row_contents.get(&list_id).cloned().unwrap_or_default()
     }
 
@@ -785,7 +789,7 @@ impl RecordingBackend {
     }
 
     pub fn live_control_count(&self) -> usize {
-        let mut alive: rustc_hash::FxHashSet<ControlId> = rustc_hash::FxHashSet::default();
+        let mut alive: std::collections::HashSet<ControlId> = std::collections::HashSet::default();
         for op in &self.ops {
             match op {
                 Op::Create { id, .. } => {

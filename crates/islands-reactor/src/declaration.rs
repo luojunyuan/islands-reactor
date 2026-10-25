@@ -1533,7 +1533,7 @@ pub(crate) mod modifiers {
                     m.foreground = None;
                 }
                 m.theme_bindings
-                    .get_or_insert_with(|| Box::new(rustc_hash::FxHashMap::default()))
+                    .get_or_insert_with(|| Box::new(std::collections::HashMap::default()))
                     .insert(prop, t);
             }
         }
@@ -2830,8 +2830,6 @@ pub(crate) mod visual_modifiers {
         collections::HashMap,
     };
 
-    use rustc_hash::FxHashMap;
-
     use super::*;
 
     /// Visual modifiers shared by every widget; carried on each element struct
@@ -2854,7 +2852,7 @@ pub(crate) mod visual_modifiers {
         pub foreground: Option<Brush>,
         pub font_family: Option<String>,
         pub font_size: Option<f64>,
-        pub theme_bindings: Option<Box<rustc_hash::FxHashMap<crate::ir::Prop, ThemeRef>>>,
+        pub theme_bindings: Option<Box<std::collections::HashMap<crate::ir::Prop, ThemeRef>>>,
         pub animations: Option<Box<crate::animation::AnimationModifiers>>,
         pub attached: Option<AttachedProps>,
         pub accessibility: Option<Box<AccessibilityModifiers>>,
@@ -2905,11 +2903,11 @@ pub(crate) mod visual_modifiers {
     /// Type-erased bag of attached properties (e.g. [`GridPlacement`]) keyed
     /// by [`TypeId`]; values must be inserted via [`AttachedProps::set`].
     #[derive(Default, Debug)]
-    pub struct AttachedProps(FxHashMap<TypeId, Box<dyn Any>>);
+    pub struct AttachedProps(HashMap<TypeId, Box<dyn Any>>);
 
     impl Clone for AttachedProps {
         fn clone(&self) -> Self {
-            let mut copy = FxHashMap::default();
+            let mut copy = HashMap::default();
             for (k, v) in &self.0 {
                 let (clone_fn, _) = ops_for(*k).unwrap();
                 copy.insert(*k, clone_fn(&**v));
@@ -2980,8 +2978,8 @@ pub(crate) mod visual_modifiers {
     }
 
     thread_local! {
-        static OPS_REGISTRY: std::cell::RefCell<FxHashMap<TypeId, AttachedOps>> =
-            std::cell::RefCell::new(FxHashMap::default());
+        static OPS_REGISTRY: std::cell::RefCell<HashMap<TypeId, AttachedOps>> =
+            std::cell::RefCell::new(HashMap::default());
     }
 
     fn register_ops<T: Clone + PartialEq + 'static>() {

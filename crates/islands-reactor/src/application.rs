@@ -576,7 +576,7 @@ pub(crate) mod render_host {
             }
             self.inner.inner_size.set(size);
             if let Some(root_id) = self.inner.root_id.get() {
-                let mut changed = rustc_hash::FxHashSet::default();
+                let mut changed = std::collections::HashSet::default();
                 changed.insert(inner_size_context_id());
                 self.inner
                     .reconciler
@@ -596,7 +596,7 @@ pub(crate) mod render_host {
             }
             self.inner.dpi.set(dpi);
             if let Some(root_id) = self.inner.root_id.get() {
-                let mut changed = rustc_hash::FxHashSet::default();
+                let mut changed = std::collections::HashSet::default();
                 changed.insert(dpi_context_id());
                 self.inner
                     .reconciler
