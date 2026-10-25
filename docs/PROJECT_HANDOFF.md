@@ -35,10 +35,10 @@ Bindings live under `crates/islands-reactor/src/native`:
 - `bindings.rs`: Windows XAML, Win32, and WinRT support bindings
 - `winui/backend/generated`: generated property and event dispatch modules
 
-The generated `crates/islands-reactor/src/generated_declarations.rs` file maps
-the handwritten Islands widget declarations to reactor property and event
-bindings. The public widget declarations remain handwritten because Islands
-has a distinct declaration API and control set.
+The generated `crates/islands-reactor/src/generated_declarations.rs` file
+combines the Islands widget template in `crates/tools/reactor/src/declarations.rs`
+with property and event bindings generated from `schema.toml`. The template
+retains Islands-specific builders and control behavior.
 
 The code generator reads `crates/tools/reactor/src/schema.toml` and its binding
 filters, then regenerates every checked-in generated Rust file under
