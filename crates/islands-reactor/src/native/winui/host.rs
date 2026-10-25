@@ -41,8 +41,8 @@ use crate::bindings::*;
 use crate::winui::xaml_interop::interop::IDesktopWindowXamlSourceNative;
 use crate::*;
 
-use super::app_shim::create_island_application;
 use super::{WinUIBackend, WinUIDispatcher, backend::TitleBarState};
+use crate::native::app_shim::create_island_application;
 
 static XAML_HWND: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
 static CORE_HWND: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());

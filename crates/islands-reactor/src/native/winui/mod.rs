@@ -1,4 +1,3 @@
-pub(crate) mod app_shim;
 pub mod backend;
 pub mod dispatcher;
 pub(crate) mod hooks;

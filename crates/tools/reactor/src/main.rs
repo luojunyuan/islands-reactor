@@ -2391,6 +2391,14 @@ const SCHEMA: &str = include_str!("schema.toml");
 
 const XAML_MINIMAL_FILTERS: &str = include_str!("bindings.txt");
 const WIDGET_DECLARATIONS: &str = include_str!("declarations.rs");
+const XAML_BINDINGS_OUTPUT: &str = "crates/islands-reactor/src/native/bindings.rs";
+const GENERATED_DECLARATIONS_OUTPUT: &str = "crates/islands-reactor/src/generated_declarations.rs";
+const GENERATED_SET_PROP_OUTPUT: &str =
+    "crates/islands-reactor/src/native/winui/backend/generated/set_prop.rs";
+const GENERATED_ATTACH_EVENT_OUTPUT: &str =
+    "crates/islands-reactor/src/native/winui/backend/generated/attach_event.rs";
+const GENERATED_BACKEND_MODULE_OUTPUT: &str =
+    "crates/islands-reactor/src/native/winui/backend/generated.rs";
 
 fn main() {
     let mut args = env::args().skip(1);
@@ -2416,7 +2424,7 @@ fn generate_bindings() -> Result<(), String> {
 }
 
 fn generate_xaml_bindings(root: &Path) -> Result<(), String> {
-    let out = root.join("crates/islands-reactor/src/native/bindings.rs");
+    let out = root.join(XAML_BINDINGS_OUTPUT);
     let temp = root.join("target").join("tool-reactor").join("bindings.rs");
     if let Some(parent) = temp.parent() {
         fs::create_dir_all(parent)
@@ -2459,20 +2467,17 @@ fn generate_reactor_code(root: &Path) -> Result<(), String> {
         WIDGET_DECLARATIONS.trim(),
         binding_body.trim(),
     );
+    write_generated_rs(&root.join(GENERATED_DECLARATIONS_OUTPUT), &declarations)?;
     write_generated_rs(
-        &root.join("crates/islands-reactor/src/generated_declarations.rs"),
-        &declarations,
-    )?;
-    write_generated_rs(
-        &root.join("crates/islands-reactor/src/native/winui/backend/generated/set_prop.rs"),
+        &root.join(GENERATED_SET_PROP_OUTPUT),
         &native::set_prop::generate(&controls, &resolver),
     )?;
     write_generated_rs(
-        &root.join("crates/islands-reactor/src/native/winui/backend/generated/attach_event.rs"),
+        &root.join(GENERATED_ATTACH_EVENT_OUTPUT),
         &native::attach_event::generate(&controls, &resolver),
     )?;
     write_generated_rs(
-        &root.join("crates/islands-reactor/src/native/winui/backend/generated.rs"),
+        &root.join(GENERATED_BACKEND_MODULE_OUTPUT),
         native::BACKEND_GENERATED_MODULE,
     )
 }
