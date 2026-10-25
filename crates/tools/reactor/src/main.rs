@@ -134,6 +134,145 @@ mod gen_bindings {
         }
     }
 }
+mod gen_ir {
+    /// Generates the control, property, and event identifiers shared by the IR and backend.
+    use std::collections::BTreeSet;
+
+    use quote::quote;
+
+    use crate::helpers::*;
+    use crate::schema::Control;
+
+    const EXTRA_CONTROL_KINDS: &[&str] = &[
+        "Ellipse",
+        "FlipView",
+        "GridView",
+        "Line",
+        "ListView",
+        "PivotItem",
+        "Rectangle",
+        "RichTextBlock",
+    ];
+
+    const EXTRA_PROPS: &[&str] = &[
+        "ActionButton",
+        "ActionButtonText",
+        "AlignBottomWithPanel",
+        "AlignHCenterWithPanel",
+        "AlignLeftWithPanel",
+        "AlignRightWithPanel",
+        "AlignTopWithPanel",
+        "AlignVCenterWithPanel",
+        "AttachedCanvasLeft",
+        "AttachedCanvasTop",
+        "AttachedCanvasZIndex",
+        "AttachedGridColumn",
+        "AttachedGridColumnSpan",
+        "AttachedGridRow",
+        "AttachedGridRowSpan",
+        "AutoSuggestBox",
+        "AutoSuggestItems",
+        "AutoSuggestPlaceholder",
+        "Background",
+        "BorderBrush",
+        "BorderThickness",
+        "CloseButton",
+        "ColorValue",
+        "Columns",
+        "CommandBarFlyoutCommands",
+        "CornerRadius",
+        "DisplayMode",
+        "Fill",
+        "FlyoutContent",
+        "FlyoutPlacement",
+        "FontFamily",
+        "FontSize",
+        "FontWeight",
+        "Foreground",
+        "GridColumns",
+        "GridRows",
+        "Height",
+        "HorizontalAlignment",
+        "Icon",
+        "ImageSource",
+        "IsOpen",
+        "ItemHeader",
+        "ItemKey",
+        "Items",
+        "LineEndpoints",
+        "Margin",
+        "MaxHeight",
+        "MaxWidth",
+        "MenuFlyoutItems",
+        "MenuItems",
+        "MinHeight",
+        "MinWidth",
+        "NavigateUri",
+        "Nodes",
+        "Opacity",
+        "Padding",
+        "PrimaryCommands",
+        "Resources",
+        "Rows",
+        "SecondaryCommands",
+        "SelectedTag",
+        "Step",
+        "Stroke",
+        "StrokeThickness",
+        "Style",
+        "StyleVariant",
+        "Tall",
+        "TextWrappingWrap",
+        "VerticalAlignment",
+        "Width",
+    ];
+
+    const EXTRA_EVENTS: &[&str] = &["CalendarDateSelected", "Closed"];
+
+    pub fn generate(controls: &[Control]) -> String {
+        let mut control_kinds = controls
+            .iter()
+            .map(|control| control.kind().to_string())
+            .collect::<BTreeSet<_>>();
+        control_kinds.extend(EXTRA_CONTROL_KINDS.iter().map(|kind| (*kind).to_string()));
+
+        let mut props = controls
+            .iter()
+            .flat_map(|control| control.prop.iter().map(|prop| prop.prop().to_string()))
+            .collect::<BTreeSet<_>>();
+        props.extend(EXTRA_PROPS.iter().map(|prop| (*prop).to_string()));
+
+        let mut events = controls
+            .iter()
+            .flat_map(|control| control.event.iter().map(|event| event.event()))
+            .collect::<BTreeSet<_>>();
+        events.extend(EXTRA_EVENTS.iter().map(|event| (*event).to_string()));
+
+        let control_kinds: Vec<_> = control_kinds.iter().map(|kind| ident(kind)).collect();
+        let props: Vec<_> = props.iter().map(|prop| ident(prop)).collect();
+        let events: Vec<_> = events.iter().map(|event| ident(event)).collect();
+
+        format_generated(quote! {
+            /// Closed set of Islands control kinds a backend can create.
+            #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+            pub enum ControlKind {
+                #(#control_kinds,)*
+            }
+
+            /// Properties accepted by the Islands backend intermediate representation.
+            #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+            pub enum Prop {
+                #(#props,)*
+            }
+
+            /// Events delivered by the Islands backend intermediate representation.
+            #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+            pub enum Event {
+                #(#events,)*
+            }
+        })
+    }
+}
 mod helpers {
     /// Shared helpers for the code generators.
     use proc_macro2::{Ident, Span, TokenStream};
@@ -2392,6 +2531,7 @@ const SCHEMA: &str = include_str!("schema.toml");
 const XAML_MINIMAL_FILTERS: &str = include_str!("bindings.txt");
 const WIDGET_DECLARATIONS: &str = include_str!("declarations.rs");
 const XAML_BINDINGS_OUTPUT: &str = "crates/islands-reactor/src/native/bindings.rs";
+const GENERATED_IR_OUTPUT: &str = "crates/islands-reactor/src/generated.rs";
 const GENERATED_DECLARATIONS_OUTPUT: &str = "crates/islands-reactor/src/generated_declarations.rs";
 const GENERATED_SET_PROP_OUTPUT: &str =
     "crates/islands-reactor/src/native/winui/backend/generated/set_prop.rs";
@@ -2457,6 +2597,11 @@ fn generate_reactor_code(root: &Path) -> Result<(), String> {
     for warning in schema::validate(&controls, &resolver) {
         eprintln!("{warning}");
     }
+
+    write_generated_rs(
+        &root.join(GENERATED_IR_OUTPUT),
+        &gen_ir::generate(&controls),
+    )?;
 
     let bindings = gen_bindings::generate(&controls);
     let binding_body = bindings
