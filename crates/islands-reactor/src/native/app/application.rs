@@ -15,14 +15,19 @@ use crate::native::winui::*;
 const E_FAIL: HRESULT = HRESULT(0x80004005u32 as i32);
 
 thread_local! {
-    static HOST_SLOT: RefCell<Option<ReactorHost>> = const { RefCell::new(None) };
+    static HOST_SLOT: RefCell<Option<ActiveHost>> = const { RefCell::new(None) };
+}
+
+struct ActiveHost {
+    _notify_icons: Vec<crate::native::notifyicon::NotifyIcon>,
+    host: ReactorHost,
 }
 
 pub fn with_active_host<F, R>(f: F) -> Option<R>
 where
     F: FnOnce(&ReactorHost) -> R,
 {
-    HOST_SLOT.with(|slot| slot.borrow().as_ref().map(f))
+    HOST_SLOT.with(|slot| slot.borrow().as_ref().map(|active| f(&active.host)))
 }
 
 fn clear_active_host() {
@@ -38,6 +43,7 @@ pub struct App {
     eager_templated_realization: bool,
     presenter: PresenterKind,
     backdrop: Option<Backdrop>,
+    notify_icons: Vec<crate::native::notifyicon::NotifyIconBuilder>,
 }
 
 impl Default for App {
@@ -55,6 +61,7 @@ impl App {
             eager_templated_realization: false,
             presenter: PresenterKind::Default,
             backdrop: None,
+            notify_icons: Vec::new(),
         }
     }
 
@@ -96,6 +103,12 @@ impl App {
         self
     }
 
+    /// Keeps a notification-area icon alive for the duration of the app message loop.
+    pub fn notify_icon(mut self, icon: crate::native::notifyicon::NotifyIconBuilder) -> Self {
+        self.notify_icons.push(icon);
+        self
+    }
+
     pub fn run<F, C>(self, root_factory: F) -> Result<()>
     where
         F: FnOnce() -> C + Send + 'static,
@@ -108,8 +121,13 @@ impl App {
         let constraints = self.inner_constraints;
         let presenter = self.presenter;
         let backdrop = self.backdrop;
+        let notify_icons = self.notify_icons;
 
         let result = run_callback("OnLaunched", move || {
+            let notify_icons = notify_icons
+                .into_iter()
+                .map(crate::native::notifyicon::NotifyIconBuilder::build)
+                .collect::<Result<Vec<_>>>()?;
             let root: Box<dyn Component> = Box::new(root_factory());
             let host = ReactorHost::new_with_window_options_and_backdrop(
                 &title,
@@ -124,7 +142,10 @@ impl App {
             host.set_presenter(presenter);
             host.activate()?;
             HOST_SLOT.with(|slot| {
-                *slot.borrow_mut() = Some(host);
+                *slot.borrow_mut() = Some(ActiveHost {
+                    _notify_icons: notify_icons,
+                    host,
+                });
             });
             Ok(())
         });

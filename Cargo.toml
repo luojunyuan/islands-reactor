@@ -25,3 +25,4 @@ windows-numerics = { version = "0.100.0", path = "reference/windows-rs/crates/li
 windows-reference = { version = "0.100.0", path = "reference/windows-rs/crates/libs/reference", default-features = false }
 windows-threading = { version = "0.100.0", path = "reference/windows-rs/crates/libs/threading", default-features = false }
 windows-time = { version = "0.100.0", path = "reference/windows-rs/crates/libs/time", default-features = false }
+windows-window = { version = "0.100.0", path = "reference/windows-rs/crates/libs/window", default-features = false }

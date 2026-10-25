@@ -14,7 +14,6 @@ mod native;
 mod application;
 mod component;
 pub mod declaration;
-pub mod dsl;
 mod generated;
 mod generated_declarations;
 mod ir;
@@ -80,12 +79,13 @@ pub use declaration::templated_list::{
 pub use declaration::theme::*;
 pub use declaration::tooltip::*;
 pub use declaration::visual_modifiers::*;
-pub use dsl::*;
+pub use declaration::*;
 pub use ir::{Backend, ControlId};
 pub use native::app;
 pub use native::app::*;
 pub use native::bootstrap;
 pub use native::bootstrap::*;
+pub use native::notifyicon::{NotifyIcon, NotifyIconBuilder, NotifyIconEvent, ScreenPoint};
 pub use native::winui;
 pub use native::winui::dispatcher::WinUIDispatcher;
 pub use native::winui::host::{

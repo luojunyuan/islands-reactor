@@ -68,6 +68,7 @@ dependencies = [
  "windows-reference",
  "windows-threading",
  "windows-time",
+ "windows-window",
 ]
 
 [[package]]
@@ -398,6 +399,13 @@ dependencies = [
 
 [[package]]
 name = "windows-time"
+version = "0.100.0"
+dependencies = [
+ "windows-core",
+]
+
+[[package]]
+name = "windows-window"
 version = "0.100.0"
 dependencies = [
  "windows-core",

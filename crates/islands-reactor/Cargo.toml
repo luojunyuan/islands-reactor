@@ -19,6 +19,7 @@ windows-numerics = { workspace = true }
 windows-reference = { workspace = true, features = ["std"] }
 windows-threading = { workspace = true }
 windows-time = { workspace = true, features = ["std"] }
+windows-window = { workspace = true }
 
 [features]
 default = ["diagnostics"]
