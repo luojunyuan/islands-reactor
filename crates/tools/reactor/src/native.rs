@@ -30,11 +30,11 @@ pub(super) mod attach_event {
         }
 
         format_generated(quote! {
-            use super::super::*;
+            use super::*;
             use crate::bindings as Xaml;
             /// Try to handle an `attach_event` call via generated dispatch.
             /// Returns `Some(revokers)` if handled, `None` to fall through.
-            pub(crate) fn dispatch(
+            pub(super) fn dispatch(
                 handle: &Handle,
                 event: Event,
                 handler: &EventHandler,
@@ -461,12 +461,11 @@ pub(super) mod set_prop {
         }
 
         format_generated(quote! {
-            use super::super::*;
-            use super::super::string_as_textblock;
+            use super::*;
             use crate::bindings as Xaml;
             /// Try to handle a `set_prop` call via generated dispatch.
             /// Returns `Ok(true)` if handled, `Ok(false)` to fall through.
-            pub(crate) fn dispatch(
+            pub(super) fn dispatch(
                 handle: &Handle,
                 prop: Prop,
                 value: &PropValue,
@@ -799,7 +798,7 @@ pub(super) fn generate_dispatch(
     let set_prop = set_prop.strip_prefix(HEADER).unwrap();
 
     format!(
-        "{HEADER}{handle_factory}\nmod attach_event {{\n{attach_event}}}\n\nmod set_prop {{\n{set_prop}}}\n\npub(super) use attach_event::dispatch as dispatch_attach_event;\npub(super) use set_prop::dispatch as dispatch_set_prop;\n",
+        "{HEADER}{handle_factory}\nmod attach_event {{\n{attach_event}}}\n\nmod set_prop {{\n{set_prop}}}\n\nuse attach_event::dispatch as dispatch_attach_event;\nuse set_prop::dispatch as dispatch_set_prop;\n",
     )
 }
 
@@ -828,11 +827,8 @@ fn generate_handle_factory(controls: &[super::schema::Control]) -> String {
     }));
 
     format_generated(quote! {
-        use super::*;
-        use crate::bindings as Xaml;
-
         /// Creates native controls whose constructors are described by the schema.
-        pub(super) fn create_handle(kind: ControlKind) -> Option<windows_core::Result<Handle>> {
+        fn create_handle(kind: ControlKind) -> Option<windows_core::Result<Handle>> {
             match kind {
                 #(#arms)*
                 _ => None,
