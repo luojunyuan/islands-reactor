@@ -69,7 +69,7 @@ struct MemberOverride {
     /// Explicit WinUI enum type for enum-backed I32 properties.
     #[serde(default)]
     winui_type: Option<String>,
-    /// Explicit binding module for `winui_type`, e.g. `Xaml` or `Iuxc`.
+    /// Explicit binding module for `winui_type`, e.g. `Xaml`.
     #[serde(default)]
     enum_module: Option<String>,
 }

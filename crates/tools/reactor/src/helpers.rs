@@ -6,6 +6,20 @@ pub fn ident(s: &str) -> Ident {
     Ident::new(s, Span::call_site())
 }
 
+pub fn bindgen_method_name(method: &str) -> String {
+    if let Some(property) = method.strip_prefix("put_") {
+        format!("Set{property}")
+    } else if let Some(property) = method.strip_prefix("get_") {
+        property.to_string()
+    } else if let Some(event) = method.strip_prefix("add_") {
+        event.to_string()
+    } else if let Some(event) = method.strip_prefix("remove_") {
+        format!("Remove{event}")
+    } else {
+        method.to_string()
+    }
+}
+
 /// Convert `PascalCase` to `snake_case`.
 pub fn to_snake_case(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 4);

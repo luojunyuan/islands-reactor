@@ -31,8 +31,6 @@ pub fn generate(controls: &[Control], resolver: &MetadataResolver) -> String {
     format_generated(quote! {
         use super::super::*;
         use crate::bindings as Xaml;
-        #[allow(unused_imports)]
-        use crate::bindings_iuxc as Iuxc;
         /// Try to handle an `attach_event` call via generated dispatch.
         /// Returns `Some(revokers)` if handled, `None` to fall through.
         pub(crate) fn dispatch(
@@ -74,7 +72,7 @@ fn gen_sender_getter(
     invoke_call: TokenStream,
     default: TokenStream,
 ) -> TokenStream {
-    let getter_ident = ident(getter);
+    let getter_ident = ident(&bindgen_method_name(getter));
     let handle_ident = ident(handle_name);
     let handle_module = ident(handle_module);
     let receiver = event_receiver(receiver_module, iface, handle_name);
@@ -104,7 +102,7 @@ fn gen_args_getter(
     getter: &str,
     invoke_call: TokenStream,
 ) -> TokenStream {
-    let getter_ident = ident(getter);
+    let getter_ident = ident(&bindgen_method_name(getter));
     let receiver = event_receiver(receiver_module, iface, handle_name);
     quote! {
         let handler = handler.clone();
@@ -156,7 +154,7 @@ fn gen_event_arm(
         .unwrap_or_else(|| panic!("metadata: cannot resolve {handle_name}.{add_method} for event"));
     let receiver_module = iface_ref.module_alias();
     let iface = ident(iface_ref.short_name());
-    let add_ident = ident(&add_method);
+    let add_ident = ident(&bindgen_method_name(&add_method));
 
     let handler_body = match invoke {
         "invoke" => {
@@ -251,7 +249,7 @@ fn gen_event_arm(
                 panic!("event '{handle_name}.{event_name}': invoke_bool_dual requires false_event")
             });
             let add_false = format!("add_{false_evt}");
-            let add_false_ident = ident(&add_false);
+            let add_false_ident = ident(&bindgen_method_name(&add_false));
             let iface_false_ref = resolver
                 .resolve(handle_name, &add_false)
                 .unwrap_or_else(|| {

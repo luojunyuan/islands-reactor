@@ -2,8 +2,6 @@
 
 use super::super::*;
 use crate::bindings as Xaml;
-#[allow(unused_imports)]
-use crate::bindings_iuxc as Iuxc;
 #[doc = r" Try to handle an `attach_event` call via generated dispatch."]
 #[doc = r" Returns `Some(revokers)` if handled, `None` to fall through."]
 pub(crate) fn dispatch(
@@ -13,32 +11,12 @@ pub(crate) fn dispatch(
 ) -> Option<Vec<windows_core::EventRevoker>> {
     let mut revokers = Vec::new();
     match (event, handle) {
-        (Event::Click, Handle::DropDownButton(h)) => {
-            let handler = handler.clone();
-            revokers.push(
-                h.cast::<Xaml::IButtonBase>()
-                    .unwrap()
-                    .add_Click(move |_sender, _args| {
-                        handler.invoke();
-                    })
-                    .unwrap(),
-            );
-        }
-        (Event::Click, Handle::SplitButton(h)) => {
-            let handler = handler.clone();
-            revokers.push(
-                h.add_Click(move |_sender, _args| {
-                    handler.invoke();
-                })
-                .unwrap(),
-            );
-        }
         (Event::Click, Handle::Button(h)) => {
             let handler = handler.clone();
             revokers.push(
                 h.cast::<Xaml::IButtonBase>()
                     .unwrap()
-                    .add_Click(move |_sender, _args| {
+                    .Click(move |_sender, _args| {
                         handler.invoke();
                     })
                     .unwrap(),
@@ -47,7 +25,7 @@ pub(crate) fn dispatch(
         (Event::SelectedDatesChanged, Handle::CalendarView(h)) => {
             let handler = handler.clone();
             revokers.push(
-                h.add_SelectedDatesChanged(move |_sender, _args| {
+                h.SelectedDatesChanged(move |_sender, _args| {
                     handler.invoke();
                 })
                 .unwrap(),
@@ -58,7 +36,7 @@ pub(crate) fn dispatch(
             revokers.push(
                 h.cast::<Xaml::IToggleButton>()
                     .unwrap()
-                    .add_Checked(move |_sender, _args| {
+                    .Checked(move |_sender, _args| {
                         true_handler.invoke_bool(true);
                     })
                     .unwrap(),
@@ -67,8 +45,19 @@ pub(crate) fn dispatch(
             revokers.push(
                 h.cast::<Xaml::IToggleButton>()
                     .unwrap()
-                    .add_Unchecked(move |_sender, _args| {
+                    .Unchecked(move |_sender, _args| {
                         false_handler.invoke_bool(false);
+                    })
+                    .unwrap(),
+            );
+        }
+        (Event::Click, Handle::DropDownButton(h)) => {
+            let handler = handler.clone();
+            revokers.push(
+                h.cast::<Xaml::IButtonBase>()
+                    .unwrap()
+                    .Click(move |_sender, _args| {
+                        handler.invoke();
                     })
                     .unwrap(),
             );
@@ -78,7 +67,7 @@ pub(crate) fn dispatch(
             revokers.push(
                 h.cast::<Xaml::IButtonBase>()
                     .unwrap()
-                    .add_Click(move |_sender, _args| {
+                    .Click(move |_sender, _args| {
                         handler.invoke();
                     })
                     .unwrap(),
@@ -89,7 +78,7 @@ pub(crate) fn dispatch(
             revokers.push(
                 h.cast::<Xaml::IButtonBase>()
                     .unwrap()
-                    .add_Click(move |_sender, _args| {
+                    .Click(move |_sender, _args| {
                         handler.invoke();
                     })
                     .unwrap(),
@@ -98,14 +87,14 @@ pub(crate) fn dispatch(
         (Event::Checked, Handle::ToggleButton(h)) => {
             let true_handler = handler.clone();
             revokers.push(
-                h.add_Checked(move |_sender, _args| {
+                h.Checked(move |_sender, _args| {
                     true_handler.invoke_bool(true);
                 })
                 .unwrap(),
             );
             let false_handler = handler.clone();
             revokers.push(
-                h.add_Unchecked(move |_sender, _args| {
+                h.Unchecked(move |_sender, _args| {
                     false_handler.invoke_bool(false);
                 })
                 .unwrap(),
@@ -116,7 +105,7 @@ pub(crate) fn dispatch(
             revokers.push(
                 h.cast::<Xaml::IToggleButton>()
                     .unwrap()
-                    .add_Checked(move |_sender, _args| {
+                    .Checked(move |_sender, _args| {
                         handler.invoke();
                     })
                     .unwrap(),
@@ -125,11 +114,11 @@ pub(crate) fn dispatch(
         (Event::ValueChanged, Handle::RatingControl(h)) => {
             let handler = handler.clone();
             revokers.push(
-                h.add_ValueChanged(move |sender, _args| {
+                h.ValueChanged(move |sender, _args| {
                     let v = sender
                         .as_ref()
                         .and_then(|s| s.cast::<Xaml::RatingControl>().ok())
-                        .and_then(|s| s.get_Value().ok())
+                        .and_then(|s| s.Value().ok())
                         .unwrap_or(-1.0);
                     handler.invoke_f64(v);
                 })
@@ -141,9 +130,9 @@ pub(crate) fn dispatch(
             revokers.push(
                 h.cast::<Xaml::IRangeBase>()
                     .unwrap()
-                    .add_ValueChanged(move |_sender, args| {
+                    .ValueChanged(move |_sender, args| {
                         if let Some(a) = args.as_ref()
-                            && let Ok(v) = a.get_NewValue()
+                            && let Ok(v) = a.NewValue()
                         {
                             handler.invoke_f64(v);
                         }
@@ -151,10 +140,19 @@ pub(crate) fn dispatch(
                     .unwrap(),
             );
         }
+        (Event::Click, Handle::SplitButton(h)) => {
+            let handler = handler.clone();
+            revokers.push(
+                h.Click(move |_sender, _args| {
+                    handler.invoke();
+                })
+                .unwrap(),
+            );
+        }
         (Event::PaneClosed, Handle::SplitView(h)) => {
             let handler = handler.clone();
             revokers.push(
-                h.add_PaneClosed(move |_sender, _args| {
+                h.PaneClosed(move |_sender, _args| {
                     handler.invoke();
                 })
                 .unwrap(),
@@ -163,11 +161,11 @@ pub(crate) fn dispatch(
         (Event::TextChanged, Handle::TextBox(h)) => {
             let handler = handler.clone();
             revokers.push(
-                h.add_TextChanged(move |sender, _args| {
+                h.TextChanged(move |sender, _args| {
                     let v = sender
                         .as_ref()
                         .and_then(|s| s.cast::<Xaml::TextBox>().ok())
-                        .and_then(|s| s.get_Text().ok())
+                        .and_then(|s| s.Text().ok())
                         .unwrap_or(Default::default());
                     handler.invoke_string(v);
                 })
@@ -177,11 +175,11 @@ pub(crate) fn dispatch(
         (Event::Toggled, Handle::ToggleSwitch(h)) => {
             let handler = handler.clone();
             revokers.push(
-                h.add_Toggled(move |sender, _args| {
+                h.Toggled(move |sender, _args| {
                     let v = sender
                         .as_ref()
                         .and_then(|s| s.cast::<Xaml::ToggleSwitch>().ok())
-                        .and_then(|s| s.get_IsOn().ok())
+                        .and_then(|s| s.IsOn().ok())
                         .unwrap_or(false);
                     handler.invoke_bool(v);
                 })

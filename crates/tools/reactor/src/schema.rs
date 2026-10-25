@@ -405,8 +405,6 @@ impl EventDecl {
 pub fn module_alias_for_namespace(namespace: &str) -> Option<&'static str> {
     if namespace.starts_with("Windows.UI.Xaml") {
         Some("Xaml")
-    } else if namespace.starts_with("Islands.UI.Xaml") {
-        Some("Iuxc")
     } else {
         None
     }

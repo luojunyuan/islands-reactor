@@ -12,11 +12,9 @@ mod native;
 mod schema;
 mod toml_parser;
 
-const ISLANDS_UI_XAML_VERSION: &str = "0.1.0-local";
 const SCHEMA: &str = include_str!("schema.toml");
 
 const XAML_MINIMAL_FILTERS: &str = include_str!("bindings.txt");
-const IUXC_MINIMAL_FILTERS: &str = include_str!("iuxc_bindings.txt");
 
 fn main() {
     let mut args = env::args().skip(1);
@@ -36,109 +34,32 @@ fn main() {
 
 fn generate_bindings() -> Result<(), String> {
     let root = workspace_root()?;
-    let iuxc_package = islands_ui_xaml_package_dir(&root)?;
-    let iuxc_winmd = iuxc_native_asset(&iuxc_package, "x64", "Islands.UI.Xaml.Controls.winmd")?;
-
     generate_xaml_bindings(&root)?;
-    generate_iuxc_module(&root, &iuxc_winmd)?;
-    generate_reactor_code(&root, &iuxc_winmd)?;
+    generate_reactor_code(&root)?;
     Ok(())
 }
 
 fn generate_xaml_bindings(root: &Path) -> Result<(), String> {
     let out = root.join("crates/islands-reactor/src/native/bindings.rs");
     let temp = root.join("target").join("tool-reactor").join("bindings.rs");
-    let temp_arg = path_arg(&temp);
-    let mut args = vec![
-        "--in",
-        "default",
-        "--out",
-        &temp_arg,
-        "--implement",
-        "Windows.UI.Xaml.IApplicationOverrides",
-        "Windows.UI.Xaml.Markup.IXamlMetadataProvider",
-        "--minimal",
-        "--flat",
-        "--filter",
-    ];
-    args.extend(XAML_MINIMAL_FILTERS.lines());
-    args.extend([
-        "--reference",
-        "windows,skip-root,Windows.ApplicationModel.Core",
-        "--reference",
-        "windows,skip-root,Windows.Foundation.Collections.IPropertySet",
-        "--reference",
-        "windows,skip-root,Windows.Foundation.Collections.PropertySet",
-        "--reference",
-        "windows,skip-root,Windows.Foundation.Collections.ValueSet",
-        "--reference",
-        "windows_collections,flat,Windows.Foundation.Collections",
-        "--reference",
-        "windows,skip-root,Windows.Foundation.Numerics.Quaternion",
-        "--reference",
-        "windows_numerics,flat,Windows.Foundation.Numerics",
-        "--reference",
-        "windows,skip-root,Windows.Foundation",
-        "--reference",
-        "windows,skip-root,Windows.Win32.Foundation",
-        "--reference",
-        "windows,skip-root,Windows.Win32.UI.WindowsAndMessaging",
-    ]);
-    run_bindgen(args)?;
+    if let Some(parent) = temp.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("failed to create {}: {err}", parent.display()))?;
+    }
+    windows_bindgen::builder()
+        .input_default()
+        .output(&temp)
+        .minimal()
+        .flat()
+        .filters(XAML_MINIMAL_FILTERS.lines())
+        .write();
     patch_xaml_bindings(&temp)?;
     mark_generated(&temp)?;
     copy_if_changed(&temp, &out)
 }
 
-fn generate_iuxc_module(root: &Path, iuxc_winmd: &Path) -> Result<(), String> {
-    let out = root.join("crates/islands-reactor/src/native/bindings_iuxc.rs");
-    let temp = root
-        .join("target")
-        .join("tool-reactor")
-        .join("bindings_iuxc.rs");
-    let temp_arg = path_arg(&temp);
-    let iuxc_winmd = path_arg(iuxc_winmd);
-    let mut args = vec![
-        "--in",
-        "default",
-        &iuxc_winmd,
-        "--out",
-        &temp_arg,
-        "--minimal",
-        "--flat",
-        "--filter",
-    ];
-    args.extend(IUXC_MINIMAL_FILTERS.lines());
-    args.extend([
-        "--reference",
-        "crate::bindings,flat,Windows.UI",
-        "--reference",
-        "crate::bindings,flat,Windows.UI.Xaml",
-        "--reference",
-        "crate::bindings,flat,Windows.UI.Xaml.Controls",
-        "--reference",
-        "crate::bindings,flat,Windows.UI.Input",
-        "--reference",
-        "crate::bindings,flat,Windows.UI.Text",
-        "--reference",
-        "windows,skip-root,Windows.Foundation",
-        "--reference",
-        "windows_collections,flat,Windows.Foundation.Collections",
-        "--reference",
-        "windows,skip-root,Windows.Win32.Foundation",
-        "--reference",
-        "windows,skip-root,Windows.Foundation.Numerics.Quaternion",
-        "--reference",
-        "windows_numerics,flat,Windows.Foundation.Numerics",
-    ]);
-    run_bindgen(args)?;
-    patch_iuxc_bindings(&temp)?;
-    mark_generated(&temp)?;
-    copy_if_changed(&temp, &out)
-}
-
-fn generate_reactor_code(root: &Path, iuxc_winmd: &Path) -> Result<(), String> {
-    let metadata_dir = stage_reactor_metadata(root, iuxc_winmd)?;
+fn generate_reactor_code(root: &Path) -> Result<(), String> {
+    let metadata_dir = stage_reactor_metadata(root)?;
     let resolver = metadata::MetadataResolver::load(&metadata_dir);
     let mut controls = toml_parser::parse(SCHEMA, &resolver);
 
@@ -171,7 +92,7 @@ fn generate_reactor_code(root: &Path, iuxc_winmd: &Path) -> Result<(), String> {
     )
 }
 
-fn stage_reactor_metadata(root: &Path, iuxc_winmd: &Path) -> Result<PathBuf, String> {
+fn stage_reactor_metadata(root: &Path) -> Result<PathBuf, String> {
     let work = root
         .join("target")
         .join("tool-reactor")
@@ -180,7 +101,6 @@ fn stage_reactor_metadata(root: &Path, iuxc_winmd: &Path) -> Result<PathBuf, Str
 
     let windows_winmd = locate_windows_bindgen_default_winmd(root)?;
     copy_file(&windows_winmd, &work.join("Windows.winmd"))?;
-    copy_file(iuxc_winmd, &work.join("Islands.UI.Xaml.Controls.winmd"))?;
     Ok(work)
 }
 
@@ -198,9 +118,10 @@ fn locate_windows_bindgen_default_winmd(root: &Path) -> Result<PathBuf, String> 
     let manifest = package.manifest_path.as_std_path();
     let winmd = manifest
         .parent()
+        .and_then(Path::parent)
         .ok_or_else(|| {
             format!(
-                "windows-bindgen manifest has no parent: {}",
+                "windows-bindgen manifest has no libraries directory: {}",
                 manifest.display()
             )
         })?
@@ -212,11 +133,6 @@ fn locate_windows_bindgen_default_winmd(root: &Path) -> Result<PathBuf, String> 
 
 fn write_generated_rs(path: &Path, code: &str) -> Result<(), String> {
     write_if_changed(path, &rustfmt(code))
-}
-
-fn run_bindgen(args: Vec<&str>) -> Result<(), String> {
-    let _warnings = windows_bindgen::bindgen(args);
-    Ok(())
 }
 
 fn write_if_changed(path: &Path, content: &str) -> Result<(), String> {
@@ -260,99 +176,6 @@ fn workspace_root() -> Result<PathBuf, String> {
         .and_then(Path::parent)
         .map(Path::to_path_buf)
         .ok_or_else(|| format!("could not resolve workspace root from {}", dir.display()))
-}
-
-fn islands_ui_xaml_package_dir(root: &Path) -> Result<PathBuf, String> {
-    if let Ok(dir) = env::var("ISLANDS_UI_XAML_PACKAGE_DIR") {
-        let dir = PathBuf::from(dir);
-        if dir.exists() {
-            return Ok(dir);
-        }
-        return Err(format!(
-            "ISLANDS_UI_XAML_PACKAGE_DIR points to a missing directory: {}",
-            dir.display()
-        ));
-    }
-
-    if let Ok(package) = env::var("ISLANDS_UI_XAML_NUPKG") {
-        let package = PathBuf::from(package);
-        require_file(&package, "Islands.UI.Xaml NuGet package")?;
-        return extract_iuxc_nupkg(root, &package);
-    }
-
-    if let Some(parent) = root.parent() {
-        let package = parent
-            .join("ixx-trans")
-            .join("artifacts")
-            .join("packages")
-            .join(format!("Islands.UI.Xaml.{ISLANDS_UI_XAML_VERSION}.nupkg"));
-        if package.exists() {
-            return extract_iuxc_nupkg(root, &package);
-        }
-    }
-
-    let nuget_root = if let Ok(root) = env::var("NUGET_PACKAGES") {
-        PathBuf::from(root)
-    } else {
-        let profile = env::var("USERPROFILE").map_err(|_| "USERPROFILE is not set".to_string())?;
-        PathBuf::from(profile).join(".nuget").join("packages")
-    };
-    let package_dir = nuget_root
-        .join("islands.ui.xaml")
-        .join(ISLANDS_UI_XAML_VERSION);
-    if package_dir.exists() {
-        Ok(package_dir)
-    } else {
-        Err(format!(
-            "missing NuGet package Islands.UI.Xaml/{ISLANDS_UI_XAML_VERSION}; \
-             set ISLANDS_UI_XAML_NUPKG or ISLANDS_UI_XAML_PACKAGE_DIR"
-        ))
-    }
-}
-
-fn extract_iuxc_nupkg(root: &Path, package: &Path) -> Result<PathBuf, String> {
-    let work = root
-        .join("target")
-        .join("tool-reactor")
-        .join("islands-ui-xaml-package");
-    recreate_dir(&work)?;
-    expand_nupkg(package, &work)?;
-    Ok(work)
-}
-
-fn iuxc_native_asset(package: &Path, arch: &str, file: &str) -> Result<PathBuf, String> {
-    let path = package
-        .join("runtimes")
-        .join(iuxc_rid(arch)?)
-        .join("native")
-        .join(file);
-    require_file(&path, &format!("Islands.UI.Xaml {arch} native asset"))?;
-    Ok(path)
-}
-
-fn iuxc_rid(arch: &str) -> Result<&'static str, String> {
-    match arch {
-        "x64" => Ok("win-x64"),
-        "arm64" => Ok("win-arm64"),
-        "x86" => Ok("win-x86"),
-        _ => Err(format!("unsupported Islands.UI.Xaml architecture: {arch}")),
-    }
-}
-
-fn expand_nupkg(nupkg: &Path, stage: &Path) -> Result<(), String> {
-    run_command(
-        Command::new("powershell")
-            .arg("-NoProfile")
-            .arg("-ExecutionPolicy")
-            .arg("Bypass")
-            .arg("-Command")
-            .arg(format!(
-                "Expand-Archive -LiteralPath '{}' -DestinationPath '{}' -Force",
-                ps_escape(nupkg),
-                ps_escape(stage)
-            )),
-        "Expand-Archive",
-    )
 }
 
 fn recreate_dir(path: &Path) -> Result<(), String> {
@@ -405,14 +228,6 @@ fn patch_xaml_bindings(path: &Path) -> Result<(), String> {
         .map_err(|err| format!("failed to read {}: {err}", path.display()))?;
     patch_windows_core_api(&mut code);
     insert_selection_changed_event_handler_ctor(&mut code)?;
-    fs::write(path, code).map_err(|err| format!("failed to write {}: {err}", path.display()))
-}
-
-fn patch_iuxc_bindings(path: &Path) -> Result<(), String> {
-    let mut code = fs::read_to_string(path)
-        .map_err(|err| format!("failed to read {}: {err}", path.display()))?;
-    code = code.replace("xaml_bindings::", "crate::bindings::");
-    patch_windows_core_api(&mut code);
     fs::write(path, code).map_err(|err| format!("failed to write {}: {err}", path.display()))
 }
 
@@ -489,7 +304,7 @@ impl SelectionChangedEventHandler {
             &SelectionChangedEventHandlerResultBox::<F>::VTABLE,
             handler,
         );
-        unsafe { core::mem::transmute(windows_core::imp::Box::new(com)) }
+        unsafe { core::mem::transmute(windows_core::imp::box_new(com)) }
     }
 }
 "#;
@@ -515,34 +330,4 @@ fn require_file(path: &Path, label: &str) -> Result<(), String> {
     } else {
         Err(format!("{label} not found: {}", path.display()))
     }
-}
-
-fn run_command(command: &mut Command, label: &str) -> Result<(), String> {
-    let output = command
-        .output()
-        .map_err(|err| format!("{label} failed to start: {err}"))?;
-    if output.status.success() {
-        Ok(())
-    } else {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(format!(
-            "{label} exited with {}{}\n{}",
-            output.status,
-            if stdout.trim().is_empty() {
-                String::new()
-            } else {
-                format!("\nstdout:\n{stdout}")
-            },
-            stderr
-        ))
-    }
-}
-
-fn path_arg(path: &Path) -> String {
-    path.display().to_string()
-}
-
-fn ps_escape(path: &Path) -> String {
-    path.display().to_string().replace('\'', "''")
 }

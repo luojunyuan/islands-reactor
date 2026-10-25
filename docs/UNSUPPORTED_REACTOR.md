@@ -1,17 +1,16 @@
 # Compatibility Status
 
 The crate follows the current Reactor layout in `reference/windows-rs`, with a
-`Windows.UI.Xaml` XAML Islands backend. It uses system XAML controls and the
-project's `Islands.UI.Xaml.Controls` runtime for the additional `ScrollView` and
-`TitleBar` controls. Runtime deployment is managed outside this workspace.
+`Windows.UI.Xaml` XAML Islands backend. It uses Windows system XAML controls;
+the workspace has no additional XAML control package to deploy.
 
 ## Adapted Surface
 
 | API | Local implementation |
 | --- | --- |
-| `ScrollView` | `Islands.UI.Xaml.Controls.ScrollView` |
+| `ScrollView` | `Windows.UI.Xaml.Controls.ScrollViewer` |
 | `SelectorBar` | Horizontal `ToggleButton` composition with single selection |
-| `TitleBar` | Islands control with Win32 non-client integration |
+| `TitleBar` | System XAML composition with Win32 non-client integration |
 | `Backdrop` | Win32 DWM system backdrop attributes |
 
 ## Omitted Surface
@@ -44,6 +43,5 @@ download packages. Regeneration is explicit:
 cargo run -p tool-reactor -- generate-bindings
 ```
 
-The generator uses the Windows XAML metadata and the local Islands controls
-metadata. It generates checked-in Rust bindings and dispatch modules, but does
-not vendor runtime DLL or PRI files.
+The generator uses the Windows XAML metadata. It generates checked-in Rust
+bindings and dispatch modules without NuGet packages or extra runtime assets.

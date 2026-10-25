@@ -17,12 +17,9 @@ The workspace is arranged as follows:
 
 ## Runtime
 
-Applications depend on `islands-reactor` normally. The setup helper has been
-removed, so sample builds do not add a build dependency or build script.
-
-The host can load an `Islands.UI.Xaml.Controls.pri` file placed beside the
-executable. Runtime deployment and the application manifest are managed by the
-application outside this workspace.
+Applications depend on `islands-reactor` normally. The setup helper and
+additional XAML control package have been removed. The host uses Windows system
+XAML controls, with Win32 code for window-specific behavior.
 
 ## Bindings
 
@@ -36,15 +33,13 @@ cargo run -p tool-reactor -- generate-bindings
 Bindings live under `crates/islands-reactor/src/native`:
 
 - `bindings.rs`: Windows XAML, Win32, and WinRT support bindings
-- `bindings_iuxc.rs`: private bindings for the Islands controls package
 - `winui/backend/generated`: generated property and event dispatch modules
 
 The code generator reads `crates/tools/reactor/src/schema.toml` and its binding
 filters, then regenerates every checked-in generated Rust file under
 `crates/islands-reactor/src`. Public widget declarations remain handwritten
 because Islands uses its own declaration API and control set; they have no
-one-to-one generated declaration file in this port. Generation does not stage
-runtime DLL or PRI assets.
+one-to-one generated declaration file in this port.
 
 ## Porting Contract
 
@@ -65,7 +60,8 @@ baseline.
 - Theme brush bindings use XAML style setters with `{ThemeResource ...}`.
 - Backdrop support uses `WS_EX_NOREDIRECTIONBITMAP` and DWM system backdrop
   attributes.
-- `ScrollView` and `TitleBar` use the private Islands controls package.
+- `ScrollView` maps to system `ScrollViewer`; `TitleBar` is composed from system
+  XAML controls and integrated with the host window through Win32.
 
 ## Migration Target
 

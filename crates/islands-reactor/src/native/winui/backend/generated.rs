@@ -2,6 +2,5 @@
 
 mod attach_event;
 mod set_prop;
-
 pub(super) use attach_event::dispatch as dispatch_attach_event;
 pub(super) use set_prop::dispatch as dispatch_set_prop;

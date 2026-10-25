@@ -1,6 +1,16 @@
 use super::*;
 
-pub use crate::bindings_iuxc::ScrollingScrollBarVisibility;
+#[non_exhaustive]
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct ScrollingScrollBarVisibility(pub i32);
+
+#[allow(non_upper_case_globals)]
+impl ScrollingScrollBarVisibility {
+    pub const Auto: Self = Self(1);
+    pub const Visible: Self = Self(3);
+    pub const Hidden: Self = Self(2);
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScrollView {

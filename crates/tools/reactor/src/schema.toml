@@ -166,9 +166,10 @@ TextChanged = { manual = true, type = "Str" }
 HorizontalScrollBarVisibility = {}
 VerticalScrollBarVisibility = {}
 
-["Islands.UI.Xaml.Controls.ScrollView"]
-HorizontalScrollBarVisibility = {}
-VerticalScrollBarVisibility = {}
+["Island.ScrollView"]
+_control = { handle = "ScrollViewer", namespace = "Windows.UI.Xaml.Controls" }
+HorizontalScrollBarVisibility = { custom = true, winui_type = "ScrollBarVisibility", enum_module = "Xaml" }
+VerticalScrollBarVisibility = { custom = true, winui_type = "ScrollBarVisibility", enum_module = "Xaml" }
 
 ["Island.SelectorBar"]
 SelectionChanged = { manual = true, type = "Str" }
@@ -217,7 +218,8 @@ MinuteIncrement = {}
 IsEnabled = {}
 SelectedTimeChanged = { manual = true, type = "TimeSpan" }
 
-["Islands.UI.Xaml.Controls.TitleBar"]
+["Island.TitleBar"]
+_control = { handle = "Grid", namespace = "Windows.UI.Xaml.Controls" }
 Title = { custom = true, type = "Str" }
 Subtitle = { custom = true, type = "Str" }
 IsBackButtonVisible = { custom = true, type = "Bool" }

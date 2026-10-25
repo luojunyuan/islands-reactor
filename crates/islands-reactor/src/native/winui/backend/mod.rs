@@ -5,7 +5,6 @@ use rustc_hash::FxHashMap;
 use windows_core::{IInspectable, Interface, Result};
 
 use crate::bindings as Xaml;
-use crate::bindings_iuxc as Iuxc;
 use crate::ir::*;
 use crate::*;
 
@@ -109,7 +108,7 @@ impl WinUIBackend {
             },
             _ => return,
         };
-        let _ = selector.put_SelectedIndex(index);
+        let _ = selector.SetSelectedIndex(index);
     }
 
     fn set_prop_inner(&self, id: ControlId, prop: Prop, value: &PropValue) -> Result<()> {
@@ -123,15 +122,15 @@ impl WinUIBackend {
         }
 
         match (prop, value, handle) {
-            (Prop::Text, PropValue::Str(s), Handle::TextBlock(tb)) => tb.put_Text(s)?,
+            (Prop::Text, PropValue::Str(s), Handle::TextBlock(tb)) => tb.SetText(s)?,
             (Prop::Text, PropValue::Str(s), Handle::TextBox(tb)) => {
-                if tb.get_Text().ok() != Some(s.clone()) {
-                    tb.put_Text(s)?;
+                if tb.Text().ok() != Some(s.clone()) {
+                    tb.SetText(s)?;
                 }
             }
             (Prop::Text, PropValue::Str(s), Handle::AutoSuggestBox(asb)) => {
-                if asb.get_Text().ok().as_deref() != Some(s.as_str()) {
-                    asb.put_Text(s)?;
+                if asb.Text().ok().as_deref() != Some(s.as_str()) {
+                    asb.SetText(s)?;
                 }
             }
             (
@@ -139,49 +138,49 @@ impl WinUIBackend {
                 PropValue::I32(v),
                 Handle::TextBlock(tb),
             ) => {
-                tb.put_TextWrapping(Xaml::TextWrapping(*v))?;
+                tb.SetTextWrapping(Xaml::TextWrapping(*v))?;
             }
             (
                 Prop::TextWrapping | Prop::TextWrappingWrap,
                 PropValue::I32(v),
                 Handle::TextBox(tb),
             ) => {
-                tb.put_TextWrapping(Xaml::TextWrapping(*v))?;
+                tb.SetTextWrapping(Xaml::TextWrapping(*v))?;
             }
             (Prop::IsTextSelectionEnabled, PropValue::Bool(v), Handle::TextBlock(tb)) => {
-                tb.put_IsTextSelectionEnabled(*v)?;
+                tb.SetIsTextSelectionEnabled(*v)?;
             }
             (Prop::PlaceholderText, PropValue::Str(s), h) => {
                 if let Ok(tb) = h.cast_inner::<Xaml::TextBox>() {
-                    tb.cast::<Xaml::ITextBox2>()?.put_PlaceholderText(s)?;
+                    tb.cast::<Xaml::ITextBox2>()?.SetPlaceholderText(s)?;
                 } else if let Ok(pb) = h.cast_inner::<Xaml::PasswordBox>() {
-                    pb.cast::<Xaml::IPasswordBox2>()?.put_PlaceholderText(s)?;
+                    pb.cast::<Xaml::IPasswordBox2>()?.SetPlaceholderText(s)?;
                 } else if let Ok(asb) = h.cast_inner::<Xaml::AutoSuggestBox>() {
-                    asb.put_PlaceholderText(s)?;
+                    asb.SetPlaceholderText(s)?;
                 } else if let Ok(cdp) = h.cast_inner::<Xaml::CalendarDatePicker>() {
-                    cdp.put_PlaceholderText(s)?;
+                    cdp.SetPlaceholderText(s)?;
                 }
             }
             (Prop::Header, PropValue::Str(s), h) => {
                 let content = string_reference(s);
                 if let Ok(tb) = h.cast_inner::<Xaml::TextBox>() {
-                    tb.cast::<Xaml::ITextBox2>()?.put_Header(&content)?;
+                    tb.cast::<Xaml::ITextBox2>()?.SetHeader(&content)?;
                 } else if let Ok(pb) = h.cast_inner::<Xaml::PasswordBox>() {
-                    pb.cast::<Xaml::IPasswordBox2>()?.put_Header(&content)?;
+                    pb.cast::<Xaml::IPasswordBox2>()?.SetHeader(&content)?;
                 } else if let Ok(cb) = h.cast_inner::<Xaml::ComboBox>() {
-                    cb.cast::<Xaml::IComboBox2>()?.put_Header(&content)?;
+                    cb.cast::<Xaml::IComboBox2>()?.SetHeader(&content)?;
                 } else if let Ok(slider) = h.cast_inner::<Xaml::Slider>() {
-                    slider.cast::<Xaml::ISlider2>()?.put_Header(&content)?;
+                    slider.cast::<Xaml::ISlider2>()?.SetHeader(&content)?;
                 } else if let Ok(tp) = h.cast_inner::<Xaml::TimePicker>() {
-                    tp.put_Header(&content)?;
+                    tp.SetHeader(&content)?;
                 } else if let Ok(dp) = h.cast_inner::<Xaml::DatePicker>() {
-                    dp.put_Header(&content)?;
+                    dp.SetHeader(&content)?;
                 } else if let Ok(cdp) = h.cast_inner::<Xaml::CalendarDatePicker>() {
-                    cdp.put_Header(&content)?;
+                    cdp.SetHeader(&content)?;
                 } else if let Ok(asb) = h.cast_inner::<Xaml::AutoSuggestBox>() {
-                    asb.put_Header(&content)?;
+                    asb.SetHeader(&content)?;
                 } else if let Ok(reb) = h.cast_inner::<Xaml::RichEditBox>() {
-                    reb.cast::<Xaml::IRichEditBox2>()?.put_Header(&content)?;
+                    reb.cast::<Xaml::IRichEditBox2>()?.SetHeader(&content)?;
                 }
             }
             (Prop::Content, PropValue::Str(s), h) => {
@@ -189,157 +188,157 @@ impl WinUIBackend {
             }
             (Prop::IsEnabled, PropValue::Bool(v), h) => {
                 if let Ok(control) = h.cast_inner::<Xaml::Control>() {
-                    control.put_IsEnabled(*v)?;
+                    control.SetIsEnabled(*v)?;
                 }
             }
             (Prop::IsChecked, PropValue::Bool(v), h) => {
                 if let Ok(toggle) = h.cast_inner::<Xaml::ToggleButton>() {
-                    toggle.put_IsChecked(Some(*v))?;
+                    toggle.SetIsChecked(Some(*v))?;
                 }
             }
             (Prop::IsOn, PropValue::Bool(v), Handle::ToggleSwitch(ts)) => {
-                ts.put_IsOn(*v)?;
+                ts.SetIsOn(*v)?;
             }
             (Prop::OnContent, PropValue::Str(s), Handle::ToggleSwitch(ts)) => {
-                ts.put_OnContent(&string_reference(s))?;
+                ts.SetOnContent(&string_reference(s))?;
             }
             (Prop::OffContent, PropValue::Str(s), Handle::ToggleSwitch(ts)) => {
-                ts.put_OffContent(&string_reference(s))?;
+                ts.SetOffContent(&string_reference(s))?;
             }
             (Prop::Orientation, PropValue::I32(v), Handle::StackPanel(sp)) => {
-                sp.put_Orientation(Xaml::Orientation(*v))?;
+                sp.SetOrientation(Xaml::Orientation(*v))?;
             }
             (Prop::Orientation, PropValue::I32(v), Handle::Slider(slider)) => {
-                slider.put_Orientation(Xaml::Orientation(*v))?;
+                slider.SetOrientation(Xaml::Orientation(*v))?;
             }
             (Prop::Spacing, PropValue::F64(v), Handle::StackPanel(sp)) => {
-                sp.cast::<Xaml::IStackPanel4>()?.put_Spacing(*v)?;
+                sp.cast::<Xaml::IStackPanel4>()?.SetSpacing(*v)?;
             }
             (Prop::RowSpacing, PropValue::F64(v), Handle::Grid(g)) => {
-                g.cast::<Xaml::IGrid3>()?.put_RowSpacing(*v)?;
+                g.cast::<Xaml::IGrid3>()?.SetRowSpacing(*v)?;
             }
             (Prop::ColumnSpacing, PropValue::F64(v), Handle::Grid(g)) => {
-                g.cast::<Xaml::IGrid3>()?.put_ColumnSpacing(*v)?;
+                g.cast::<Xaml::IGrid3>()?.SetColumnSpacing(*v)?;
             }
             (Prop::Margin, PropValue::Thickness(t), h) => {
                 if let Ok(fe) = h.cast_inner::<Xaml::FrameworkElement>() {
-                    fe.put_Margin(xaml_thickness(*t))?;
+                    fe.SetMargin(xaml_thickness(*t))?;
                 }
             }
             (Prop::Padding, PropValue::Thickness(t), h) => {
                 if let Ok(control) = h.cast_inner::<Xaml::Control>() {
-                    control.put_Padding(xaml_thickness(*t))?;
+                    control.SetPadding(xaml_thickness(*t))?;
                 } else if let Ok(border) = h.cast_inner::<Xaml::Border>() {
-                    border.put_Padding(xaml_thickness(*t))?;
+                    border.SetPadding(xaml_thickness(*t))?;
                 }
             }
             (Prop::Width, PropValue::F64(v), h) => {
                 if let Ok(fe) = h.cast_inner::<Xaml::FrameworkElement>() {
-                    fe.put_Width(*v)?;
+                    fe.SetWidth(*v)?;
                 }
             }
             (Prop::Height, PropValue::F64(v), h) => {
                 if let Ok(fe) = h.cast_inner::<Xaml::FrameworkElement>() {
-                    fe.put_Height(*v)?;
+                    fe.SetHeight(*v)?;
                 }
             }
             (Prop::MinWidth, PropValue::F64(v), h) => {
                 if let Ok(fe) = h.cast_inner::<Xaml::FrameworkElement>() {
-                    fe.put_MinWidth(*v)?;
+                    fe.SetMinWidth(*v)?;
                 }
             }
             (Prop::MaxWidth, PropValue::F64(v), h) => {
                 if let Ok(fe) = h.cast_inner::<Xaml::FrameworkElement>() {
-                    fe.put_MaxWidth(*v)?;
+                    fe.SetMaxWidth(*v)?;
                 }
             }
             (Prop::MinHeight, PropValue::F64(v), h) => {
                 if let Ok(fe) = h.cast_inner::<Xaml::FrameworkElement>() {
-                    fe.put_MinHeight(*v)?;
+                    fe.SetMinHeight(*v)?;
                 }
             }
             (Prop::MaxHeight, PropValue::F64(v), h) => {
                 if let Ok(fe) = h.cast_inner::<Xaml::FrameworkElement>() {
-                    fe.put_MaxHeight(*v)?;
+                    fe.SetMaxHeight(*v)?;
                 }
             }
             (Prop::HorizontalAlignment, PropValue::I32(v), h) => {
                 if let Ok(fe) = h.cast_inner::<Xaml::FrameworkElement>() {
-                    fe.put_HorizontalAlignment(Xaml::HorizontalAlignment(*v))?;
+                    fe.SetHorizontalAlignment(Xaml::HorizontalAlignment(*v))?;
                 }
             }
             (Prop::VerticalAlignment, PropValue::I32(v), h) => {
                 if let Ok(fe) = h.cast_inner::<Xaml::FrameworkElement>() {
-                    fe.put_VerticalAlignment(Xaml::VerticalAlignment(*v))?;
+                    fe.SetVerticalAlignment(Xaml::VerticalAlignment(*v))?;
                 }
             }
             (Prop::Opacity, PropValue::F64(v), h) => {
                 if let Ok(ui) = h.cast_inner::<Xaml::UIElement>() {
-                    ui.put_Opacity(*v)?;
+                    ui.SetOpacity(*v)?;
                 }
             }
             (Prop::FontSize, PropValue::F64(v), h) => {
                 if let Ok(control) = h.cast_inner::<Xaml::Control>() {
-                    control.put_FontSize(*v)?;
+                    control.SetFontSize(*v)?;
                 } else if let Ok(tb) = h.cast_inner::<Xaml::TextBlock>() {
-                    tb.put_FontSize(*v)?;
+                    tb.SetFontSize(*v)?;
                 } else if let Ok(rtb) = h.cast_inner::<Xaml::RichTextBlock>() {
-                    rtb.put_FontSize(*v)?;
+                    rtb.SetFontSize(*v)?;
                 }
             }
             (Prop::FontWeight, PropValue::U16(v), h) => {
-                let weight = Xaml::FontWeight { Weight: *v };
+                let weight = Xaml::FontWeight { weight: *v };
                 if let Ok(control) = h.cast_inner::<Xaml::Control>() {
-                    control.put_FontWeight(weight)?;
+                    control.SetFontWeight(weight)?;
                 } else if let Ok(tb) = h.cast_inner::<Xaml::TextBlock>() {
-                    tb.put_FontWeight(weight)?;
+                    tb.SetFontWeight(weight)?;
                 }
             }
             (Prop::FontFamily, PropValue::Str(s), h) => {
                 let family = Xaml::FontFamily::CreateInstanceWithName(s)?;
                 if let Ok(control) = h.cast_inner::<Xaml::Control>() {
-                    control.put_FontFamily(&family)?;
+                    control.SetFontFamily(&family)?;
                 } else if let Ok(tb) = h.cast_inner::<Xaml::TextBlock>() {
-                    tb.put_FontFamily(&family)?;
+                    tb.SetFontFamily(&family)?;
                 } else if let Ok(rtb) = h.cast_inner::<Xaml::RichTextBlock>() {
-                    rtb.put_FontFamily(&family)?;
+                    rtb.SetFontFamily(&family)?;
                 }
             }
             (Prop::Foreground, PropValue::Brush(b), h) => {
                 let brush = xaml_brush(b)?;
                 if let Ok(control) = h.cast_inner::<Xaml::Control>() {
-                    control.put_Foreground(&brush)?;
+                    control.SetForeground(&brush)?;
                 } else if let Ok(tb) = h.cast_inner::<Xaml::TextBlock>() {
-                    tb.put_Foreground(&brush)?;
+                    tb.SetForeground(&brush)?;
                 } else if let Ok(rtb) = h.cast_inner::<Xaml::RichTextBlock>() {
-                    rtb.put_Foreground(&brush)?;
+                    rtb.SetForeground(&brush)?;
                 }
             }
             (Prop::Background, PropValue::Brush(b), h) => {
                 let brush = xaml_brush(b)?;
                 if let Ok(border) = h.cast_inner::<Xaml::Border>() {
-                    border.put_Background(&brush)?;
+                    border.SetBackground(&brush)?;
                 } else if let Ok(panel) = h.cast_inner::<Xaml::Panel>() {
-                    panel.put_Background(&brush)?;
+                    panel.SetBackground(&brush)?;
                 } else if let Ok(control) = h.cast_inner::<Xaml::Control>() {
-                    control.put_Background(&brush)?;
+                    control.SetBackground(&brush)?;
                 }
             }
             (Prop::StyleVariant, PropValue::I32(v), Handle::Button(button)) => {
                 apply_button_style_variant(button, *v)?;
             }
             (Prop::BorderBrush, PropValue::Brush(b), Handle::Border(border)) => {
-                border.put_BorderBrush(&xaml_brush(b)?)?;
+                border.SetBorderBrush(&xaml_brush(b)?)?;
             }
             (Prop::BorderThickness, PropValue::Thickness(t), Handle::Border(border)) => {
-                border.put_BorderThickness(xaml_thickness(*t))?;
+                border.SetBorderThickness(xaml_thickness(*t))?;
             }
             (Prop::CornerRadius, PropValue::F64(v), Handle::Border(border)) => {
-                border.put_CornerRadius(Xaml::CornerRadius {
-                    TopLeft: *v,
-                    TopRight: *v,
-                    BottomRight: *v,
-                    BottomLeft: *v,
+                border.SetCornerRadius(Xaml::CornerRadius {
+                    top_left: *v,
+                    top_right: *v,
+                    bottom_right: *v,
+                    bottom_left: *v,
                 })?;
             }
             (Prop::GridRows, PropValue::GridLengths(rows), Handle::Grid(grid)) => {
@@ -405,62 +404,62 @@ impl WinUIBackend {
             }
             (Prop::Stretch, PropValue::I32(v), h) => {
                 if let Ok(image) = h.cast_inner::<Xaml::Image>() {
-                    image.put_Stretch(Xaml::Stretch(*v))?;
+                    image.SetStretch(Xaml::Stretch(*v))?;
                 } else if let Ok(viewbox) = h.cast_inner::<Xaml::Viewbox>() {
-                    viewbox.put_Stretch(Xaml::Stretch(*v))?;
+                    viewbox.SetStretch(Xaml::Stretch(*v))?;
                 }
             }
             (Prop::Value, PropValue::F64(v), h) => {
                 if let Ok(range) = h.cast_inner::<Xaml::RangeBase>() {
-                    range.put_Value(*v)?;
+                    range.SetValue(*v)?;
                 } else if let Ok(rating) = h.cast_inner::<Xaml::RatingControl>() {
-                    rating.put_Value(*v)?;
+                    rating.SetValue(*v)?;
                 } else if let Ok(cp) = h.cast_inner::<Xaml::ColorPicker>() {
-                    let _ = cp.put_Color(Xaml::Color {
-                        A: 255,
-                        R: *v as u8,
-                        G: *v as u8,
-                        B: *v as u8,
+                    let _ = cp.SetColor(Xaml::Color {
+                        a: 255,
+                        r: *v as u8,
+                        g: *v as u8,
+                        b: *v as u8,
                     });
                 }
             }
             (Prop::Minimum, PropValue::F64(v), h) => {
                 if let Ok(range) = h.cast_inner::<Xaml::RangeBase>() {
-                    range.put_Minimum(*v)?;
+                    range.SetMinimum(*v)?;
                 }
             }
             (Prop::Maximum, PropValue::F64(v), h) => {
                 if let Ok(range) = h.cast_inner::<Xaml::RangeBase>() {
-                    range.put_Maximum(*v)?;
+                    range.SetMaximum(*v)?;
                 }
             }
             (Prop::Step, PropValue::F64(v), Handle::Slider(slider)) => {
-                slider.put_StepFrequency(*v)?;
+                slider.SetStepFrequency(*v)?;
             }
             (Prop::IsActive, PropValue::Bool(v), Handle::ProgressRing(ring)) => {
-                ring.put_IsActive(*v)?;
+                ring.SetIsActive(*v)?;
             }
             (Prop::IsIndeterminate, PropValue::Bool(v), h) => {
                 if let Ok(bar) = h.cast_inner::<Xaml::ProgressBar>() {
-                    bar.put_IsIndeterminate(*v)?;
+                    bar.SetIsIndeterminate(*v)?;
                 }
             }
             (Prop::SelectedIndex, PropValue::I32(v), h) => {
                 if let Ok(selector) = h.cast_inner::<Xaml::Selector>() {
-                    selector.put_SelectedIndex(*v)?;
+                    selector.SetSelectedIndex(*v)?;
                 } else if let Ok(pivot) = h.cast_inner::<Xaml::Pivot>() {
-                    pivot.put_SelectedIndex(*v)?;
+                    pivot.SetSelectedIndex(*v)?;
                 }
             }
             (Prop::SelectionMode, PropValue::I32(v), h) => {
                 if let Ok(list) = h.cast_inner::<Xaml::ListView>() {
                     list.cast::<Xaml::IListViewBase>()?
-                        .put_SelectionMode(Xaml::ListViewSelectionMode(*v))?;
+                        .SetSelectionMode(Xaml::ListViewSelectionMode(*v))?;
                 } else if let Ok(grid) = h.cast_inner::<Xaml::GridView>() {
                     grid.cast::<Xaml::IListViewBase>()?
-                        .put_SelectionMode(Xaml::ListViewSelectionMode(*v))?;
+                        .SetSelectionMode(Xaml::ListViewSelectionMode(*v))?;
                 } else if let Ok(tree) = h.cast_inner::<Xaml::TreeView>() {
-                    tree.put_SelectionMode(Xaml::TreeViewSelectionMode(*v))?;
+                    tree.SetSelectionMode(Xaml::TreeViewSelectionMode(*v))?;
                 }
             }
             (Prop::Items, PropValue::StrList(items), h) => {
@@ -477,11 +476,11 @@ impl WinUIBackend {
                 set_auto_suggest_items(asb, items)?;
             }
             (Prop::AutoSuggestPlaceholder, PropValue::Str(s), Handle::AutoSuggestBox(asb)) => {
-                asb.put_PlaceholderText(s)?;
+                asb.SetPlaceholderText(s)?;
             }
             (Prop::IsPaneOpen, PropValue::Bool(v), h) => {
                 if let Ok(split) = h.cast_inner::<Xaml::SplitView>() {
-                    split.put_IsPaneOpen(*v)?;
+                    split.SetIsPaneOpen(*v)?;
                 }
             }
             (Prop::IsPaneToggleButtonVisible, PropValue::Bool(v), Handle::TitleBar(tb)) => {
@@ -504,99 +503,99 @@ impl WinUIBackend {
             }
             (Prop::Fill, PropValue::Brush(b), h) => {
                 if let Ok(shape) = h.cast_inner::<Xaml::Shape>() {
-                    shape.put_Fill(&xaml_brush(b)?)?;
+                    shape.SetFill(&xaml_brush(b)?)?;
                 }
             }
             (Prop::Stroke, PropValue::Brush(b), h) => {
                 if let Ok(shape) = h.cast_inner::<Xaml::Shape>() {
-                    shape.put_Stroke(&xaml_brush(b)?)?;
+                    shape.SetStroke(&xaml_brush(b)?)?;
                 }
             }
             (Prop::StrokeThickness, PropValue::F64(v), h) => {
                 if let Ok(shape) = h.cast_inner::<Xaml::Shape>() {
-                    shape.put_StrokeThickness(*v)?;
+                    shape.SetStrokeThickness(*v)?;
                 }
             }
             (Prop::LineEndpoints, PropValue::LineEndpoints(line), Handle::Line(l)) => {
-                l.put_X1(line.x1)?;
-                l.put_Y1(line.y1)?;
-                l.put_X2(line.x2)?;
-                l.put_Y2(line.y2)?;
+                l.SetX1(line.x1)?;
+                l.SetY1(line.y1)?;
+                l.SetX2(line.x2)?;
+                l.SetY2(line.y2)?;
             }
             (Prop::CornerRadius, PropValue::F64(v), Handle::Rectangle(r)) => {
-                r.put_RadiusX(*v)?;
-                r.put_RadiusY(*v)?;
+                r.SetRadiusX(*v)?;
+                r.SetRadiusY(*v)?;
             }
             (Prop::DisplayName, PropValue::Str(s), Handle::PersonPicture(p)) => {
-                p.put_DisplayName(s)?;
+                p.SetDisplayName(s)?;
             }
             (Prop::Initials, PropValue::Str(s), Handle::PersonPicture(p)) => {
-                p.put_Initials(s)?;
+                p.SetInitials(s)?;
             }
             (Prop::IsReadOnly, PropValue::Bool(v), Handle::RichEditBox(reb)) => {
-                reb.put_IsReadOnly(*v)?;
+                reb.SetIsReadOnly(*v)?;
             }
             (Prop::AcceptsReturn, PropValue::Bool(v), Handle::TextBox(tb)) => {
-                tb.put_AcceptsReturn(*v)?;
+                tb.SetAcceptsReturn(*v)?;
             }
             (Prop::PasswordRevealMode, PropValue::I32(v), Handle::PasswordBox(pb)) => {
                 pb.cast::<Xaml::IPasswordBox3>()?
-                    .put_PasswordRevealMode(Xaml::PasswordRevealMode(*v))?;
+                    .SetPasswordRevealMode(Xaml::PasswordRevealMode(*v))?;
             }
             (Prop::IsPasswordRevealButtonEnabled, PropValue::Bool(v), Handle::PasswordBox(pb)) => {
-                pb.put_IsPasswordRevealButtonEnabled(*v)?;
+                pb.SetIsPasswordRevealButtonEnabled(*v)?;
             }
             (Prop::DayVisible, PropValue::Bool(v), Handle::DatePicker(dp)) => {
-                dp.put_DayVisible(*v)?;
+                dp.SetDayVisible(*v)?;
             }
             (Prop::MonthVisible, PropValue::Bool(v), Handle::DatePicker(dp)) => {
-                dp.put_MonthVisible(*v)?;
+                dp.SetMonthVisible(*v)?;
             }
             (Prop::YearVisible, PropValue::Bool(v), Handle::DatePicker(dp)) => {
-                dp.put_YearVisible(*v)?;
+                dp.SetYearVisible(*v)?;
             }
             (Prop::ClockIdentifier, PropValue::Str(s), Handle::TimePicker(tp)) => {
-                tp.put_ClockIdentifier(s)?;
+                tp.SetClockIdentifier(s)?;
             }
             (Prop::MinuteIncrement, PropValue::I32(v), Handle::TimePicker(tp)) => {
-                tp.put_MinuteIncrement(*v)?;
+                tp.SetMinuteIncrement(*v)?;
             }
             (Prop::IsCalendarOpen, PropValue::Bool(v), Handle::CalendarDatePicker(cdp)) => {
-                cdp.put_IsCalendarOpen(*v)?;
+                cdp.SetIsCalendarOpen(*v)?;
             }
             (Prop::IsTodayHighlighted, PropValue::Bool(v), h) => {
                 if let Ok(cdp) = h.cast_inner::<Xaml::CalendarDatePicker>() {
-                    cdp.put_IsTodayHighlighted(*v)?;
+                    cdp.SetIsTodayHighlighted(*v)?;
                 } else if let Ok(cv) = h.cast_inner::<Xaml::CalendarView>() {
-                    cv.put_IsTodayHighlighted(*v)?;
+                    cv.SetIsTodayHighlighted(*v)?;
                 }
             }
             (Prop::IsGroupLabelVisible, PropValue::Bool(v), Handle::CalendarView(cv)) => {
-                cv.put_IsGroupLabelVisible(*v)?;
+                cv.SetIsGroupLabelVisible(*v)?;
             }
             (Prop::Delay, PropValue::I32(v), Handle::RepeatButton(rb)) => {
-                rb.put_Delay(*v)?;
+                rb.SetDelay(*v)?;
             }
             (Prop::Interval, PropValue::I32(v), Handle::RepeatButton(rb)) => {
-                rb.put_Interval(*v)?;
+                rb.SetInterval(*v)?;
             }
             (Prop::OpenPaneLength, PropValue::F64(v), Handle::SplitView(sv)) => {
-                sv.put_OpenPaneLength(*v)?;
+                sv.SetOpenPaneLength(*v)?;
             }
             (Prop::CompactPaneLength, PropValue::F64(v), Handle::SplitView(sv)) => {
-                sv.put_CompactPaneLength(*v)?;
+                sv.SetCompactPaneLength(*v)?;
             }
             (Prop::DisplayMode, PropValue::I32(v), Handle::SplitView(sv)) => {
-                sv.put_DisplayMode(Xaml::SplitViewDisplayMode(*v))?;
+                sv.SetDisplayMode(Xaml::SplitViewDisplayMode(*v))?;
             }
             (Prop::HorizontalScrollBarVisibility, PropValue::I32(v), h) => {
                 if let Ok(sv) = h.cast_inner::<Xaml::ScrollViewer>() {
-                    sv.put_HorizontalScrollBarVisibility(Xaml::ScrollBarVisibility(*v))?;
+                    sv.SetHorizontalScrollBarVisibility(Xaml::ScrollBarVisibility(*v))?;
                 }
             }
             (Prop::VerticalScrollBarVisibility, PropValue::I32(v), h) => {
                 if let Ok(sv) = h.cast_inner::<Xaml::ScrollViewer>() {
-                    sv.put_VerticalScrollBarVisibility(Xaml::ScrollBarVisibility(*v))?;
+                    sv.SetVerticalScrollBarVisibility(Xaml::ScrollBarVisibility(*v))?;
                 }
             }
             _ => {}
@@ -632,21 +631,18 @@ impl WinUIBackend {
                 }
             }
             Handle::Border(border) => {
-                let _ = border.put_Child(&child_ui);
+                let _ = border.SetChild(&child_ui);
             }
             Handle::Viewbox(v) => {
-                let _ = v.put_Child(&child_ui);
+                let _ = v.SetChild(&child_ui);
             }
-            Handle::ScrollView(scroll) => {
-                let _ = scroll.put_Content(&child_ui);
-            }
-            Handle::ScrollViewer(_) | Handle::PivotItem(_) => {
+            Handle::ScrollView(_) | Handle::ScrollViewer(_) | Handle::PivotItem(_) => {
                 if let Some(cc) = content_control_for(parent_h) {
-                    let _ = cc.put_Content(&child_ui);
+                    let _ = cc.SetContent(&child_ui);
                 }
             }
             Handle::SplitView(sv) => {
-                let _ = sv.put_Content(&child_ui);
+                let _ = sv.SetContent(&child_ui);
             }
             Handle::Pivot(_) => {
                 if let Some(items) = items_vector(parent_h) {
@@ -695,21 +691,18 @@ impl WinUIBackend {
                 }
             }
             Handle::Border(border) => {
-                let _ = border.put_Child(None);
+                let _ = border.SetChild(None);
             }
             Handle::Viewbox(v) => {
-                let _ = v.put_Child(None);
+                let _ = v.SetChild(None);
             }
-            Handle::ScrollView(scroll) => {
-                let _ = scroll.put_Content(Option::<&Xaml::UIElement>::None);
-            }
-            Handle::ScrollViewer(_) | Handle::PivotItem(_) => {
+            Handle::ScrollView(_) | Handle::ScrollViewer(_) | Handle::PivotItem(_) => {
                 if let Some(cc) = content_control_for(parent_h) {
-                    let _ = cc.put_Content(None);
+                    let _ = cc.SetContent(None);
                 }
             }
             Handle::SplitView(sv) => {
-                let _ = sv.put_Content(None);
+                let _ = sv.SetContent(None);
             }
             Handle::Pivot(_) | Handle::ListView(_) | Handle::GridView(_) | Handle::FlipView(_) => {
                 if let Some(items) = items_vector(parent_h)
@@ -833,7 +826,7 @@ impl Backend for WinUIBackend {
                 if let Ok(button) = h.cast_inner::<Xaml::ButtonBase>() {
                     revokers.push(
                         button
-                            .add_Click(move |_, _| {
+                            .Click(move |_, _| {
                                 handler.invoke();
                             })
                             .unwrap(),
@@ -845,14 +838,14 @@ impl Backend for WinUIBackend {
                     let h1 = handler.clone();
                     revokers.push(
                         toggle
-                            .add_Checked(move |_, _| {
+                            .Checked(move |_, _| {
                                 h1.invoke_bool(true);
                             })
                             .unwrap(),
                     );
                     revokers.push(
                         toggle
-                            .add_Unchecked(move |_, _| {
+                            .Unchecked(move |_, _| {
                                 handler.invoke_bool(false);
                             })
                             .unwrap(),
@@ -862,19 +855,19 @@ impl Backend for WinUIBackend {
             (Event::Toggled, Handle::ToggleSwitch(ts)) => {
                 let ts_for_cb = ts.clone();
                 revokers.push(
-                    ts.add_Toggled(move |_, _| {
-                        handler.invoke_bool(ts_for_cb.get_IsOn().unwrap_or(false));
+                    ts.Toggled(move |_, _| {
+                        handler.invoke_bool(ts_for_cb.IsOn().unwrap_or(false));
                     })
                     .unwrap(),
                 );
             }
             (Event::TextChanged, Handle::TextBox(tb)) => {
                 revokers.push(
-                    tb.add_TextChanged(move |sender, _| {
+                    tb.TextChanged(move |sender, _| {
                         let text = sender
                             .as_ref()
                             .and_then(|s| s.cast::<Xaml::TextBox>().ok())
-                            .and_then(|t| t.get_Text().ok())
+                            .and_then(|t| t.Text().ok())
                             .unwrap_or_default();
                         handler.invoke_string(text);
                     })
@@ -883,17 +876,17 @@ impl Backend for WinUIBackend {
             }
             (Event::TextChanged, Handle::AutoSuggestBox(asb)) => {
                 revokers.push(
-                    asb.add_TextChanged(move |sender, args| {
+                    asb.TextChanged(move |sender, args| {
                         let is_user_input = args
                             .as_ref()
-                            .and_then(|a| a.get_Reason().ok())
+                            .and_then(|a| a.Reason().ok())
                             .is_some_and(|reason| {
                                 reason == Xaml::AutoSuggestionBoxTextChangeReason::UserInput
                             });
                         if is_user_input {
                             let text = sender
                                 .as_ref()
-                                .and_then(|t| t.get_Text().ok())
+                                .and_then(|t| t.Text().ok())
                                 .unwrap_or_default();
                             handler.invoke_string(text);
                         }
@@ -905,10 +898,10 @@ impl Backend for WinUIBackend {
                 revokers.push(
                     asb.cast::<Xaml::IAutoSuggestBox2>()
                         .unwrap()
-                        .add_QuerySubmitted(move |_, args| {
+                        .QuerySubmitted(move |_, args| {
                             let text = args
                                 .as_ref()
-                                .and_then(|a| a.get_QueryText().ok())
+                                .and_then(|a| a.QueryText().ok())
                                 .unwrap_or_default();
                             handler.invoke_string(text);
                         })
@@ -917,10 +910,10 @@ impl Backend for WinUIBackend {
             }
             (Event::SuggestionChosen, Handle::AutoSuggestBox(asb)) => {
                 revokers.push(
-                    asb.add_SuggestionChosen(move |_, args| {
+                    asb.SuggestionChosen(move |_, args| {
                         let text = args
                             .as_ref()
-                            .and_then(|a| a.get_SelectedItem().ok())
+                            .and_then(|a| a.SelectedItem().ok())
                             .and_then(inspectable_to_string)
                             .unwrap_or_default();
                         handler.invoke_string(text);
@@ -930,25 +923,26 @@ impl Backend for WinUIBackend {
             }
             (Event::ColorChanged, Handle::ColorPicker(cp)) => {
                 revokers.push(
-                    cp.add_ColorChanged(move |_, args| {
-                        let color = args.as_ref().and_then(|a| a.get_NewColor().ok()).unwrap_or(
-                            Xaml::Color {
-                                A: 255,
-                                R: 0,
-                                G: 0,
-                                B: 0,
-                            },
-                        );
-                        handler.invoke_color((color.A, color.R, color.G, color.B));
+                    cp.ColorChanged(move |_, args| {
+                        let color =
+                            args.as_ref()
+                                .and_then(|a| a.NewColor().ok())
+                                .unwrap_or(Xaml::Color {
+                                    a: 255,
+                                    r: 0,
+                                    g: 0,
+                                    b: 0,
+                                });
+                        handler.invoke_color((color.a, color.r, color.g, color.b));
                     })
                     .unwrap(),
                 );
             }
             (Event::SelectedDateChanged, Handle::DatePicker(dp)) => {
                 revokers.push(
-                    dp.add_DateChanged(move |_, args| {
+                    dp.DateChanged(move |_, args| {
                         if let Some(a) = args.as_ref()
-                            && let Ok(dt) = a.get_NewDate()
+                            && let Ok(dt) = a.NewDate()
                         {
                             handler.invoke_datetime(dt);
                         }
@@ -958,9 +952,9 @@ impl Backend for WinUIBackend {
             }
             (Event::SelectedTimeChanged, Handle::TimePicker(tp)) => {
                 revokers.push(
-                    tp.add_TimeChanged(move |_, args| {
+                    tp.TimeChanged(move |_, args| {
                         if let Some(a) = args.as_ref()
-                            && let Ok(ts) = a.get_NewTime()
+                            && let Ok(ts) = a.NewTime()
                         {
                             handler.invoke_timespan(ts);
                         }
@@ -973,9 +967,8 @@ impl Backend for WinUIBackend {
                     let selector_for_cb = selector.clone();
                     revokers.push(
                         selector
-                            .add_SelectionChanged(move |_, _| {
-                                handler
-                                    .invoke_i32(selector_for_cb.get_SelectedIndex().unwrap_or(-1));
+                            .SelectionChanged(move |_, _| {
+                                handler.invoke_i32(selector_for_cb.SelectedIndex().unwrap_or(-1));
                             })
                             .unwrap(),
                     );
@@ -987,10 +980,10 @@ impl Backend for WinUIBackend {
                 if let Ok(range) = h.cast_inner::<Xaml::RangeBase>() {
                     revokers.push(
                         range
-                            .add_ValueChanged(move |_, args| {
+                            .ValueChanged(move |_, args| {
                                 let value = args
                                     .as_ref()
-                                    .and_then(|a| a.get_NewValue().ok())
+                                    .and_then(|a| a.NewValue().ok())
                                     .unwrap_or_default();
                                 handler.invoke_f64(value);
                             })
@@ -999,10 +992,10 @@ impl Backend for WinUIBackend {
                 } else if let Ok(rating) = h.cast_inner::<Xaml::RatingControl>() {
                     revokers.push(
                         rating
-                            .add_ValueChanged(move |sender, _| {
+                            .ValueChanged(move |sender, _| {
                                 let value = sender
                                     .as_ref()
-                                    .and_then(|r| r.get_Value().ok())
+                                    .and_then(|r| r.Value().ok())
                                     .unwrap_or_default();
                                 handler.invoke_f64(value);
                             })
@@ -1022,11 +1015,11 @@ impl Backend for WinUIBackend {
             }
             (Event::PasswordChanged, Handle::PasswordBox(pb)) => {
                 revokers.push(
-                    pb.add_PasswordChanged(move |sender, _| {
+                    pb.PasswordChanged(move |sender, _| {
                         let text = sender
                             .as_ref()
                             .and_then(|s| s.cast::<Xaml::PasswordBox>().ok())
-                            .and_then(|p| p.get_Password().ok())
+                            .and_then(|p| p.Password().ok())
                             .unwrap_or_default();
                         handler.invoke_string(text);
                     })
@@ -1035,14 +1028,14 @@ impl Backend for WinUIBackend {
             }
             (Event::ItemInvoked, Handle::TreeView(tv)) => {
                 revokers.push(
-                    tv.add_ItemInvoked(move |_, args| {
+                    tv.ItemInvoked(move |_, args| {
                         let text = args
                             .as_ref()
-                            .and_then(|a| a.get_InvokedItem().ok())
+                            .and_then(|a| a.InvokedItem().ok())
                             .and_then(|insp| {
                                 insp.cast::<Xaml::ITreeViewNode>()
                                     .ok()
-                                    .and_then(|node| node.get_Content().ok())
+                                    .and_then(|node| node.Content().ok())
                             })
                             .and_then(inspectable_to_string)
                             .unwrap_or_default();
@@ -1144,8 +1137,8 @@ impl Backend for WinUIBackend {
         };
         if let Ok(selector) = handle.cast_inner::<Xaml::Selector>() {
             let selector_for_cb = selector.clone();
-            if let Ok(subscription) = selector.add_SelectionChanged(move |_, _| {
-                handler.invoke(selector_for_cb.get_SelectedIndex().unwrap_or(-1));
+            if let Ok(subscription) = selector.SelectionChanged(move |_, _| {
+                handler.invoke(selector_for_cb.SelectedIndex().unwrap_or(-1));
             }) {
                 self.templated_selection_revokers
                     .borrow_mut()
@@ -1190,10 +1183,10 @@ impl Backend for WinUIBackend {
         match handle {
             Handle::SplitView(split) => match content {
                 Some(ui) => {
-                    let _ = split.put_Pane(&ui);
+                    let _ = split.SetPane(&ui);
                 }
                 None => {
-                    let _ = split.put_Pane(None);
+                    let _ = split.SetPane(None);
                 }
             },
             Handle::TitleBar(tb) => {
@@ -1215,7 +1208,7 @@ impl Backend for WinUIBackend {
             if let Some(handle) = map.get(&id)
                 && let Some((_, fe)) = style_target_for_handle(handle)
             {
-                let _ = fe.put_Style(None);
+                let _ = fe.SetStyle(None);
             }
             return;
         }
@@ -1265,7 +1258,7 @@ impl Backend for WinUIBackend {
         let Some(Handle::RichTextBlock(rtb)) = map.get(&id) else {
             return;
         };
-        let Ok(blocks) = rtb.get_Blocks() else {
+        let Ok(blocks) = rtb.Blocks() else {
             return;
         };
         let _ = blocks.Clear();
@@ -1273,7 +1266,7 @@ impl Backend for WinUIBackend {
             let Ok(para) = Xaml::Paragraph::new() else {
                 continue;
             };
-            let Ok(inlines) = para.get_Inlines() else {
+            let Ok(inlines) = para.Inlines() else {
                 continue;
             };
             for inline in &para_def.inlines {
@@ -1283,7 +1276,7 @@ impl Backend for WinUIBackend {
                     crate::rich_text::RichTextInline::Hyperlink(link) => link.text.as_str(),
                 };
                 if let Ok(run) = Xaml::Run::new() {
-                    let _ = run.put_Text(text);
+                    let _ = run.SetText(text);
                     let _ = run.cast::<Xaml::Inline>().and_then(|r| inlines.Append(&r));
                 }
             }
@@ -1346,7 +1339,7 @@ enum Handle {
     RepeatButton(Xaml::RepeatButton),
     RichEditBox(Xaml::RichEditBox),
     RichTextBlock(Xaml::RichTextBlock),
-    ScrollView(Iuxc::ScrollView),
+    ScrollView(Xaml::ScrollViewer),
     ScrollViewer(Xaml::ScrollViewer),
     Slider(Xaml::Slider),
     SplitButton(Xaml::SplitButton),
@@ -1404,7 +1397,7 @@ impl Handle {
             ControlKind::RepeatButton => Self::RepeatButton(Xaml::RepeatButton::new()?),
             ControlKind::RichEditBox => Self::RichEditBox(Xaml::RichEditBox::new()?),
             ControlKind::RichTextBlock => Self::RichTextBlock(Xaml::RichTextBlock::new()?),
-            ControlKind::ScrollView => Self::ScrollView(Iuxc::ScrollView::new()?),
+            ControlKind::ScrollView => Self::ScrollView(Xaml::ScrollViewer::new()?),
             ControlKind::ScrollViewer => Self::ScrollViewer(Xaml::ScrollViewer::new()?),
             ControlKind::Slider => Self::Slider(Xaml::Slider::new()?),
             ControlKind::SplitButton => Self::SplitButton(Xaml::SplitButton::new()?),
@@ -1507,9 +1500,9 @@ pub(crate) struct IslandSelectorBar {
 impl IslandSelectorBar {
     fn new() -> Result<Self> {
         let root = Xaml::StackPanel::new()?;
-        root.put_Orientation(Xaml::Orientation::Horizontal)?;
+        root.SetOrientation(Xaml::Orientation::Horizontal)?;
         if let Ok(spacing) = root.cast::<Xaml::IStackPanel4>() {
-            let _ = spacing.put_Spacing(4.0);
+            let _ = spacing.SetSpacing(4.0);
         }
         Ok(Self {
             root,
@@ -1535,7 +1528,7 @@ impl IslandSelectorBar {
         self.buttons.borrow_mut().clear();
 
         let panel = self.root.cast::<Xaml::Panel>()?;
-        let children = panel.get_Children()?;
+        let children = panel.Children()?;
         children.Clear()?;
 
         let mut buttons = Vec::with_capacity(items.len());
@@ -1560,21 +1553,21 @@ impl IslandSelectorBar {
         selected: bool,
     ) -> Result<Xaml::ToggleButton> {
         let button = Xaml::ToggleButton::new()?;
-        button.put_IsChecked(Some(selected))?;
+        button.SetIsChecked(Some(selected))?;
         let _ = button
             .cast::<Xaml::IControl>()?
-            .put_Padding(xaml_thickness(Thickness::xy(12.0, 6.0)));
+            .SetPadding(xaml_thickness(Thickness::xy(12.0, 6.0)));
 
         let content: IInspectable = if let Some(icon) = item.icon {
             let panel = Xaml::StackPanel::new()?;
-            panel.put_Orientation(Xaml::Orientation::Horizontal)?;
+            panel.SetOrientation(Xaml::Orientation::Horizontal)?;
             if let Ok(spacing) = panel.cast::<Xaml::IStackPanel4>() {
-                let _ = spacing.put_Spacing(6.0);
+                let _ = spacing.SetSpacing(6.0);
             }
             let icon = Xaml::SymbolIcon::CreateInstanceWithSymbol(Xaml::Symbol(icon.0))?;
             append_to_panel(&panel, &icon)?;
             let text = Xaml::TextBlock::new()?;
-            text.put_Text(&item.text)?;
+            text.SetText(&item.text)?;
             append_to_panel(&panel, &text)?;
             panel.cast()?
         } else {
@@ -1582,7 +1575,7 @@ impl IslandSelectorBar {
         };
         button
             .cast::<Xaml::ContentControl>()?
-            .put_Content(&content)?;
+            .SetContent(&content)?;
         Ok(button)
     }
 
@@ -1603,11 +1596,11 @@ impl IslandSelectorBar {
                 .map(|item| item.text.clone())
                 .unwrap_or_default();
             let handler = handler.clone();
-            let revoker = button.add_Checked(move |_, _| {
+            let revoker = button.Checked(move |_, _| {
                 selected_index.set(Some(index));
                 for (other_index, other) in buttons_for_cb.iter().enumerate() {
                     if other_index != index {
-                        let _ = other.put_IsChecked(Some(false));
+                        let _ = other.SetIsChecked(Some(false));
                     }
                 }
                 handler.invoke_string(selected_text.clone());
@@ -1616,9 +1609,9 @@ impl IslandSelectorBar {
 
             let selected_index = self.selected_index.clone();
             let button = button.clone();
-            let revoker = button.clone().add_Unchecked(move |_, _| {
+            let revoker = button.clone().Unchecked(move |_, _| {
                 if selected_index.get() == Some(index) {
-                    let _ = button.put_IsChecked(Some(true));
+                    let _ = button.SetIsChecked(Some(true));
                 }
             })?;
             revokers.push(revoker);
@@ -1638,7 +1631,6 @@ pub(crate) struct TitleBarMetrics {
 #[derive(Clone, Debug)]
 pub(crate) struct TitleBarState {
     pub metrics: TitleBarMetrics,
-    pub adapter: Iuxc::TitleBarWindowAdapter,
 }
 
 fn titlebar_state_from_handle(handle: &Handle) -> Option<TitleBarState> {
@@ -1652,8 +1644,12 @@ fn titlebar_state_from_handle(handle: &Handle) -> Option<TitleBarState> {
 #[derive(Clone)]
 pub(crate) struct IslandTitleBar {
     root: Xaml::Grid,
-    inner: Iuxc::TitleBar,
-    adapter: Iuxc::TitleBarWindowAdapter,
+    title: Xaml::TextBlock,
+    subtitle: Xaml::TextBlock,
+    back_button: Xaml::Button,
+    pane_button: Xaml::Button,
+    content_host: Xaml::Border,
+    footer_host: Xaml::Border,
     _caption_button_revokers: Rc<Vec<EventSubscription>>,
     height_dips: Rc<Cell<f64>>,
     back_button_visible: Rc<Cell<bool>>,
@@ -1670,26 +1666,68 @@ impl IslandTitleBar {
 
     fn new() -> Result<Self> {
         let root = Xaml::Grid::new()?;
-        root.cast::<Xaml::IGrid3>()?.put_ColumnSpacing(0.0)?;
+        root.cast::<Xaml::IGrid3>()?.SetColumnSpacing(0.0)?;
         let root_fe: Xaml::IFrameworkElement = root.cast()?;
-        root_fe.put_HorizontalAlignment(Xaml::HorizontalAlignment::Stretch)?;
-        root_fe.put_VerticalAlignment(Xaml::VerticalAlignment::Top)?;
+        root_fe.SetHorizontalAlignment(Xaml::HorizontalAlignment::Stretch)?;
+        root_fe.SetVerticalAlignment(Xaml::VerticalAlignment::Top)?;
 
+        append_grid_column(&root, grid_length_auto())?;
+        append_grid_column(&root, grid_length_pixel(Self::TITLE_AREA_WIDTH))?;
         append_grid_column(&root, grid_length_star())?;
+        append_grid_column(&root, grid_length_auto())?;
         append_grid_column(&root, grid_length_pixel(Self::CAPTION_BUTTON_WIDTH * 3.0))?;
 
-        let inner = Iuxc::TitleBar::new()?;
-        let adapter = Iuxc::TitleBarWindowAdapter::CreateInstance(&inner)?;
-        let inner_ui: Xaml::UIElement = inner.cast()?;
-        adapter.SetTitleBar(&inner_ui)?;
-        adapter.SetCaptionInsets(0.0, Self::CAPTION_BUTTON_WIDTH * 3.0)?;
-        if let Ok(window_titlebar) = adapter.get_WindowTitleBar() {
-            let _ = window_titlebar.put_ExtendsContentIntoTitleBar(true);
-            let _ = window_titlebar.put_LeftInset(0.0);
-            let _ = window_titlebar.put_RightInset(Self::CAPTION_BUTTON_WIDTH * 3.0);
-        }
-        place_in_grid(&inner, 0)?;
-        append_to_panel(&root, &inner)?;
+        let commands = Xaml::StackPanel::new()?;
+        commands
+            .cast::<Xaml::IStackPanel>()?
+            .SetOrientation(Xaml::Orientation::Horizontal)?;
+        let commands_fe: Xaml::IFrameworkElement = commands.cast()?;
+        commands_fe.SetVerticalAlignment(Xaml::VerticalAlignment::Center)?;
+        place_in_grid(&commands, 0)?;
+
+        let back_button = titlebar_glyph_button("\u{E72B}", Self::COMMAND_WIDTH, 40.0)?;
+        set_element_visibility(&back_button, false)?;
+        append_to_panel(&commands, &back_button)?;
+        let pane_button = titlebar_glyph_button("\u{E700}", Self::COMMAND_WIDTH, 40.0)?;
+        set_element_visibility(&pane_button, false)?;
+        append_to_panel(&commands, &pane_button)?;
+        append_to_panel(&root, &commands)?;
+
+        let heading = Xaml::StackPanel::new()?;
+        heading
+            .cast::<Xaml::IStackPanel>()?
+            .SetOrientation(Xaml::Orientation::Vertical)?;
+        let heading_fe: Xaml::IFrameworkElement = heading.cast()?;
+        heading_fe.SetWidth(Self::TITLE_AREA_WIDTH)?;
+        heading_fe.SetVerticalAlignment(Xaml::VerticalAlignment::Center)?;
+
+        let title = Xaml::TextBlock::new()?;
+        title.SetFontSize(14.0)?;
+        let title_fe: Xaml::IFrameworkElement = title.cast()?;
+        title_fe.SetVerticalAlignment(Xaml::VerticalAlignment::Center)?;
+        append_to_panel(&heading, &title)?;
+
+        let subtitle = Xaml::TextBlock::new()?;
+        subtitle.SetFontSize(11.0)?;
+        set_element_visibility(&subtitle, false)?;
+        let subtitle_fe: Xaml::IFrameworkElement = subtitle.cast()?;
+        subtitle_fe.SetVerticalAlignment(Xaml::VerticalAlignment::Center)?;
+        append_to_panel(&heading, &subtitle)?;
+        place_in_grid(&heading, 1)?;
+        append_to_panel(&root, &heading)?;
+
+        let content_host = Xaml::Border::new()?;
+        let content_fe: Xaml::IFrameworkElement = content_host.cast()?;
+        content_fe.SetHorizontalAlignment(Xaml::HorizontalAlignment::Stretch)?;
+        content_fe.SetVerticalAlignment(Xaml::VerticalAlignment::Center)?;
+        place_in_grid(&content_host, 2)?;
+        append_to_panel(&root, &content_host)?;
+
+        let footer_host = Xaml::Border::new()?;
+        let footer_fe: Xaml::IFrameworkElement = footer_host.cast()?;
+        footer_fe.SetVerticalAlignment(Xaml::VerticalAlignment::Center)?;
+        place_in_grid(&footer_host, 3)?;
+        append_to_panel(&root, &footer_host)?;
 
         let caption_buttons = Xaml::Grid::new()?;
         for _ in 0..3 {
@@ -1699,18 +1737,30 @@ impl IslandTitleBar {
             )?;
         }
         let caption_fe: Xaml::IFrameworkElement = caption_buttons.cast()?;
-        caption_fe.put_Height(Self::CAPTION_BUTTON_HEIGHT)?;
-        caption_fe.put_HorizontalAlignment(Xaml::HorizontalAlignment::Right)?;
-        caption_fe.put_VerticalAlignment(Xaml::VerticalAlignment::Top)?;
-        place_in_grid(&caption_buttons, 1)?;
+        caption_fe.SetHeight(Self::CAPTION_BUTTON_HEIGHT)?;
+        caption_fe.SetHorizontalAlignment(Xaml::HorizontalAlignment::Right)?;
+        caption_fe.SetVerticalAlignment(Xaml::VerticalAlignment::Center)?;
+        place_in_grid(&caption_buttons, 4)?;
 
-        let minimize = titlebar_glyph_button("\u{E921}", Self::CAPTION_BUTTON_WIDTH)?;
+        let minimize = titlebar_glyph_button(
+            "\u{E921}",
+            Self::CAPTION_BUTTON_WIDTH,
+            Self::CAPTION_BUTTON_HEIGHT,
+        )?;
         place_in_grid(&minimize, 0)?;
         append_to_panel(&caption_buttons, &minimize)?;
-        let maximize = titlebar_glyph_button("\u{E922}", Self::CAPTION_BUTTON_WIDTH)?;
+        let maximize = titlebar_glyph_button(
+            "\u{E922}",
+            Self::CAPTION_BUTTON_WIDTH,
+            Self::CAPTION_BUTTON_HEIGHT,
+        )?;
         place_in_grid(&maximize, 1)?;
         append_to_panel(&caption_buttons, &maximize)?;
-        let close = titlebar_glyph_button("\u{E8BB}", Self::CAPTION_BUTTON_WIDTH)?;
+        let close = titlebar_glyph_button(
+            "\u{E8BB}",
+            Self::CAPTION_BUTTON_WIDTH,
+            Self::CAPTION_BUTTON_HEIGHT,
+        )?;
         place_in_grid(&close, 2)?;
         append_to_panel(&caption_buttons, &close)?;
         append_to_panel(&root, &caption_buttons)?;
@@ -1718,28 +1768,29 @@ impl IslandTitleBar {
         let caption_button_revokers = vec![
             minimize
                 .cast::<Xaml::ButtonBase>()?
-                .add_Click(|_, _| super::host::minimize_active_window())?,
+                .Click(|_, _| super::host::minimize_active_window())?,
             maximize
                 .cast::<Xaml::ButtonBase>()?
-                .add_Click(|_, _| super::host::toggle_active_window_maximize())?,
+                .Click(|_, _| super::host::toggle_active_window_maximize())?,
             close
                 .cast::<Xaml::ButtonBase>()?
-                .add_Click(|_, _| super::host::close_active_window())?,
+                .Click(|_, _| super::host::close_active_window())?,
         ];
 
         let titlebar = Self {
             root,
-            inner,
-            adapter,
+            title,
+            subtitle,
+            back_button,
+            pane_button,
+            content_host,
+            footer_host,
             _caption_button_revokers: Rc::new(caption_button_revokers),
             height_dips: Rc::new(Cell::new(Self::STANDARD_HEIGHT)),
             back_button_visible: Rc::new(Cell::new(false)),
             pane_button_visible: Rc::new(Cell::new(false)),
         };
         titlebar.apply_height(Self::STANDARD_HEIGHT)?;
-        if let Ok(titlebar2) = titlebar.inner.cast::<Iuxc::ITitleBar2>() {
-            let _ = titlebar2.put_AutoRefreshDragRegions(true);
-        }
         Ok(titlebar)
     }
 
@@ -1750,7 +1801,6 @@ impl IslandTitleBar {
     fn state(&self) -> TitleBarState {
         TitleBarState {
             metrics: self.metrics(),
-            adapter: self.adapter.clone(),
         }
     }
 
@@ -1773,11 +1823,12 @@ impl IslandTitleBar {
     }
 
     fn set_title(&self, value: &str) -> Result<()> {
-        self.inner.put_Title(value)
+        self.title.SetText(value)
     }
 
     fn set_subtitle(&self, value: &str) -> Result<()> {
-        self.inner.put_Subtitle(value)
+        self.subtitle.SetText(value)?;
+        set_element_visibility(&self.subtitle, !value.is_empty())
     }
 
     fn set_tall(&self, value: bool) -> Result<()> {
@@ -1792,82 +1843,88 @@ impl IslandTitleBar {
 
     fn set_back_button_visible(&self, value: bool) -> Result<()> {
         self.back_button_visible.set(value);
-        self.inner.put_IsBackButtonVisible(value)?;
-        self.recompute_drag_regions()
+        set_element_visibility(&self.back_button, value)
     }
 
     fn set_back_button_enabled(&self, value: bool) -> Result<()> {
-        self.inner.put_IsBackButtonEnabled(value)
+        self.back_button
+            .cast::<Xaml::IControl>()?
+            .SetIsEnabled(value)
     }
 
     fn set_pane_toggle_button_visible(&self, value: bool) -> Result<()> {
         self.pane_button_visible.set(value);
-        self.inner.put_IsPaneToggleButtonVisible(value)?;
-        self.recompute_drag_regions()
+        set_element_visibility(&self.pane_button, value)
     }
 
     fn set_content(&self, content: Option<&Xaml::UIElement>) -> Result<()> {
         match content {
-            Some(content) => self.inner.put_Content(content)?,
-            None => self.inner.put_Content(Option::<&Xaml::UIElement>::None)?,
-        };
-        self.recompute_drag_regions()
+            Some(content) => self.content_host.SetChild(content),
+            None => self.content_host.SetChild(Option::<&Xaml::UIElement>::None),
+        }
     }
 
     fn set_footer(&self, content: Option<&Xaml::UIElement>) -> Result<()> {
         match content {
-            Some(content) => self.inner.put_RightHeader(content)?,
-            None => self
-                .inner
-                .put_RightHeader(Option::<&Xaml::UIElement>::None)?,
-        };
-        self.recompute_drag_regions()
+            Some(content) => self.footer_host.SetChild(content),
+            None => self.footer_host.SetChild(Option::<&Xaml::UIElement>::None),
+        }
     }
 
     fn add_back_requested(&self, handler: EventHandler) -> Result<EventSubscription> {
-        self.inner.add_BackRequested(move |_, _| handler.invoke())
+        self.back_button
+            .cast::<Xaml::ButtonBase>()?
+            .Click(move |_, _| handler.invoke())
     }
 
     fn add_pane_toggle_requested(&self, handler: EventHandler) -> Result<EventSubscription> {
-        self.inner
-            .add_PaneToggleRequested(move |_, _| handler.invoke())
+        self.pane_button
+            .cast::<Xaml::ButtonBase>()?
+            .Click(move |_, _| handler.invoke())
     }
 
     fn apply_height(&self, height: f64) -> Result<()> {
         self.root
             .cast::<Xaml::IFrameworkElement>()?
-            .put_Height(height)?;
-        let fe: Xaml::IFrameworkElement = self.inner.cast()?;
-        fe.put_MinHeight(height)?;
-        fe.put_Height(height)
+            .SetHeight(height)
     }
+}
 
-    fn recompute_drag_regions(&self) -> Result<()> {
-        if let Ok(titlebar2) = self.inner.cast::<Iuxc::ITitleBar2>() {
-            titlebar2.RecomputeDragRegions()?;
-        }
-        Ok(())
+fn set_element_visibility<T: Interface>(element: &T, visible: bool) -> Result<()> {
+    element
+        .cast::<Xaml::IUIElement>()?
+        .SetVisibility(if visible {
+            Xaml::Visibility::Visible
+        } else {
+            Xaml::Visibility::Collapsed
+        })
+}
+
+fn grid_length_auto() -> Xaml::GridLength {
+    Xaml::GridLength {
+        value: 0.0,
+        grid_unit_type: Xaml::GridUnitType::Auto,
     }
 }
 
 fn grid_length_pixel(value: f64) -> Xaml::GridLength {
     Xaml::GridLength {
-        Value: value,
-        GridUnitType: Xaml::GridUnitType::Pixel,
+        value,
+        grid_unit_type: Xaml::GridUnitType::Pixel,
     }
 }
 
 fn grid_length_star() -> Xaml::GridLength {
     Xaml::GridLength {
-        Value: 1.0,
-        GridUnitType: Xaml::GridUnitType::Star,
+        value: 1.0,
+        grid_unit_type: Xaml::GridUnitType::Star,
     }
 }
 
 fn append_grid_column(grid: &Xaml::Grid, width: Xaml::GridLength) -> Result<()> {
     let column = Xaml::ColumnDefinition::new()?;
-    column.put_Width(width)?;
-    grid.get_ColumnDefinitions()?.Append(&column)
+    column.SetWidth(width)?;
+    grid.ColumnDefinitions()?.Append(&column)
 }
 
 fn place_in_grid<T: Interface>(element: &T, column: i32) -> Result<()> {
@@ -1878,32 +1935,32 @@ fn place_in_grid<T: Interface>(element: &T, column: i32) -> Result<()> {
 fn append_to_panel<P: Interface, C: Interface>(parent: &P, child: &C) -> Result<()> {
     let panel: Xaml::Panel = parent.cast()?;
     let child: Xaml::UIElement = child.cast()?;
-    panel.get_Children()?.Append(&child)
+    panel.Children()?.Append(&child)
 }
 
-fn titlebar_glyph_button(glyph: &str, width: f64) -> Result<Xaml::Button> {
+fn titlebar_glyph_button(glyph: &str, width: f64, height: f64) -> Result<Xaml::Button> {
     let button = Xaml::Button::new()?;
     let fe: Xaml::IFrameworkElement = button.cast()?;
-    fe.put_Width(width)?;
-    fe.put_Height(IslandTitleBar::CAPTION_BUTTON_HEIGHT)?;
-    fe.put_HorizontalAlignment(Xaml::HorizontalAlignment::Left)?;
-    fe.put_VerticalAlignment(Xaml::VerticalAlignment::Top)?;
+    fe.SetWidth(width)?;
+    fe.SetHeight(height)?;
+    fe.SetHorizontalAlignment(Xaml::HorizontalAlignment::Left)?;
+    fe.SetVerticalAlignment(Xaml::VerticalAlignment::Top)?;
 
     let control: Xaml::IControl = button.cast()?;
-    control.put_Padding(xaml_thickness(Thickness::default()))?;
+    control.SetPadding(xaml_thickness(Thickness::default()))?;
     let _ = apply_button_style_variant(&button, 2);
 
     let text = Xaml::TextBlock::new()?;
-    text.put_Text(glyph)?;
-    text.put_FontSize(10.0)?;
+    text.SetText(glyph)?;
+    text.SetFontSize(10.0)?;
     if let Ok(font) = Xaml::FontFamily::CreateInstanceWithName("Segoe MDL2 Assets") {
-        let _ = text.put_FontFamily(&font);
+        let _ = text.SetFontFamily(&font);
     }
     let text_fe: Xaml::IFrameworkElement = text.cast()?;
-    text_fe.put_HorizontalAlignment(Xaml::HorizontalAlignment::Center)?;
-    text_fe.put_VerticalAlignment(Xaml::VerticalAlignment::Center)?;
+    text_fe.SetHorizontalAlignment(Xaml::HorizontalAlignment::Center)?;
+    text_fe.SetVerticalAlignment(Xaml::VerticalAlignment::Center)?;
 
-    button.cast::<Xaml::ContentControl>()?.put_Content(&text)?;
+    button.cast::<Xaml::ContentControl>()?.SetContent(&text)?;
     Ok(button)
 }
 
@@ -1929,7 +1986,7 @@ fn apply_theme_resource_style(handle: &Handle, bindings: &[(Prop, crate::theme::
     }
 
     if setters.is_empty() {
-        let _ = fe.put_Style(None);
+        let _ = fe.SetStyle(None);
         return;
     }
 
@@ -1940,8 +1997,8 @@ fn apply_theme_resource_style(handle: &Handle, bindings: &[(Prop, crate::theme::
     match Xaml::XamlReader::Load(&xaml) {
         Ok(obj) => {
             if let Ok(style) = obj.cast::<Xaml::Style>() {
-                let _ = fe.put_Style(None);
-                let _ = fe.put_Style(&style);
+                let _ = fe.SetStyle(None);
+                let _ = fe.SetStyle(&style);
             }
         }
         Err(err) => {
@@ -1966,19 +2023,19 @@ fn style_target_for_handle(handle: &Handle) -> Option<(&'static str, Xaml::IFram
 
 fn xaml_thickness(t: Thickness) -> Xaml::Thickness {
     Xaml::Thickness {
-        Left: t.left,
-        Top: t.top,
-        Right: t.right,
-        Bottom: t.bottom,
+        left: t.left,
+        top: t.top,
+        right: t.right,
+        bottom: t.bottom,
     }
 }
 
 fn xaml_color(c: Color) -> Xaml::Color {
     Xaml::Color {
-        A: c.a,
-        R: c.r,
-        G: c.g,
-        B: c.b,
+        a: c.a,
+        r: c.r,
+        g: c.g,
+        b: c.b,
     }
 }
 
@@ -1986,7 +2043,7 @@ fn xaml_brush(brush: &Brush) -> Result<Xaml::Brush> {
     match brush {
         Brush::Solid(color) => {
             let b = Xaml::SolidColorBrush::new()?;
-            b.put_Color(xaml_color(*color))?;
+            b.SetColor(xaml_color(*color))?;
             b.cast()
         }
     }
@@ -2003,19 +2060,19 @@ fn apply_button_style_variant(button: &Xaml::Button, variant: i32) -> Result<()>
     if let Some(key) = style_key {
         apply_resource_style(&fe, key)?;
     } else {
-        fe.put_Style(None)?;
+        fe.SetStyle(None)?;
     }
     Ok(())
 }
 
 fn apply_resource_style(fe: &Xaml::IFrameworkElement, resource_key: &str) -> Result<()> {
-    let resources = Xaml::Application::get_Current().and_then(|app| app.get_Resources())?;
+    let resources = Xaml::Application::Current().and_then(|app| app.Resources())?;
     let key = windows_reference::IReference::from(windows_core::HSTRING::from(resource_key));
     let map = resources
         .cast::<windows_collections::IMap<windows_core::IInspectable, windows_core::IInspectable>>(
         )?;
     let style = map.Lookup(&key)?.cast::<Xaml::Style>()?;
-    fe.put_Style(&style)
+    fe.SetStyle(&style)
 }
 
 fn hstring(s: &str) -> windows_core::HSTRING {
@@ -2037,16 +2094,16 @@ fn inspectable_to_string(value: IInspectable) -> Option<String> {
 
 fn set_content_string(handle: &Handle, s: &str) -> Result<()> {
     let tb = Xaml::TextBlock::new()?;
-    tb.put_Text(s)?;
+    tb.SetText(s)?;
     if let Ok(cc) = handle.cast_inner::<Xaml::ContentControl>() {
-        cc.put_Content(&tb)?;
+        cc.SetContent(&tb)?;
     } else if let Ok(ddb) = handle.cast_inner::<Xaml::DropDownButton>() {
         ddb.cast::<Xaml::ContentControl>()?
-            .put_Content(&string_reference(s))?;
+            .SetContent(&string_reference(s))?;
     } else if let Ok(split) = handle.cast_inner::<Xaml::SplitButton>() {
         split
             .cast::<Xaml::ContentControl>()?
-            .put_Content(&string_reference(s))?;
+            .SetContent(&string_reference(s))?;
     }
     Ok(())
 }
@@ -2055,7 +2112,7 @@ fn panel_children_vec(parent: &Handle) -> Option<windows_collections::IVector<Xa
     parent
         .cast_inner::<Xaml::Panel>()
         .ok()?
-        .get_Children()
+        .Children()
         .ok()?
         .cast()
         .ok()
@@ -2069,7 +2126,7 @@ fn items_vector(parent: &Handle) -> Option<windows_collections::IVector<IInspect
     parent
         .cast_inner::<Xaml::ItemsControl>()
         .ok()?
-        .get_Items()
+        .Items()
         .ok()?
         .cast()
         .ok()
@@ -2091,26 +2148,26 @@ fn set_auto_suggest_items(asb: &Xaml::AutoSuggestBox, items: &[String]) -> Resul
         .map(|item| Some(string_reference(item)))
         .collect();
     let vec: windows_collections::IVector<IInspectable> = vec.into();
-    asb.cast::<Xaml::IItemsControl>()?.put_ItemsSource(&vec)
+    asb.cast::<Xaml::IItemsControl>()?.SetItemsSource(&vec)
 }
 
 fn set_grid_rows(grid: &Xaml::Grid, rows: &[GridLength]) -> Result<()> {
-    let defs = grid.get_RowDefinitions()?;
+    let defs = grid.RowDefinitions()?;
     defs.Clear()?;
     for row in rows {
         let def = Xaml::RowDefinition::new()?;
-        def.put_Height(xaml_grid_length(*row))?;
+        def.SetHeight(xaml_grid_length(*row))?;
         defs.Append(&def)?;
     }
     Ok(())
 }
 
 fn set_grid_columns(grid: &Xaml::Grid, cols: &[GridLength]) -> Result<()> {
-    let defs = grid.get_ColumnDefinitions()?;
+    let defs = grid.ColumnDefinitions()?;
     defs.Clear()?;
     for col in cols {
         let def = Xaml::ColumnDefinition::new()?;
-        def.put_Width(xaml_grid_length(*col))?;
+        def.SetWidth(xaml_grid_length(*col))?;
         defs.Append(&def)?;
     }
     Ok(())
@@ -2119,16 +2176,16 @@ fn set_grid_columns(grid: &Xaml::Grid, cols: &[GridLength]) -> Result<()> {
 fn xaml_grid_length(length: GridLength) -> Xaml::GridLength {
     match length {
         GridLength::Auto => Xaml::GridLength {
-            Value: 0.0,
-            GridUnitType: Xaml::GridUnitType::Auto,
+            value: 0.0,
+            grid_unit_type: Xaml::GridUnitType::Auto,
         },
         GridLength::Pixel(v) => Xaml::GridLength {
-            Value: v,
-            GridUnitType: Xaml::GridUnitType::Pixel,
+            value: v,
+            grid_unit_type: Xaml::GridUnitType::Pixel,
         },
         GridLength::Star(v) => Xaml::GridLength {
-            Value: v,
-            GridUnitType: Xaml::GridUnitType::Star,
+            value: v,
+            grid_unit_type: Xaml::GridUnitType::Star,
         },
     }
 }
@@ -2137,8 +2194,8 @@ fn set_image_uri(image: &Xaml::Image, uri: &str) -> Result<()> {
     if uri.is_empty() {
         return Ok(());
     }
-    let uri = windows::Foundation::Uri::CreateUri(&hstring(uri))?;
+    let uri = windows::Foundation::Uri::CreateUri(&hstring(uri))?.cast::<Xaml::Uri>()?;
     let bitmap = Xaml::BitmapImage::new()?;
-    bitmap.cast::<Xaml::BitmapImage>()?.put_UriSource(&uri)?;
-    image.put_Source(&bitmap.cast::<Xaml::ImageSource>()?)
+    bitmap.cast::<Xaml::BitmapImage>()?.SetUriSource(&uri)?;
+    image.SetSource(&bitmap.cast::<Xaml::ImageSource>()?)
 }

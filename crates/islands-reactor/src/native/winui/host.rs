@@ -1,6 +1,5 @@
 use std::cell::{Cell, RefCell};
 use std::ffi::c_void;
-use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{
     OnceLock,
@@ -39,7 +38,6 @@ use windows::{
 use windows_core::Interface;
 
 use crate::bindings::*;
-use crate::bindings_iuxc as Iuxc;
 use crate::winui::xaml_interop::interop::IDesktopWindowXamlSourceNative;
 use crate::*;
 
@@ -55,7 +53,6 @@ static TITLEBAR_HEIGHT_DIPS: AtomicU32 = AtomicU32::new(40);
 static TITLEBAR_DRAG_LEFT_DIPS: AtomicU32 = AtomicU32::new(0);
 static TITLEBAR_DRAG_WIDTH_DIPS: AtomicU32 = AtomicU32::new(1);
 const WM_ISLANDS_REACTOR_SYSTEM_THEME_CHANGED: u32 = WM_APP as u32 + 0x491;
-const CAPTION_BUTTON_WIDTH_DIPS: f64 = 46.0;
 
 thread_local! {
     static ROOT_FRAMEWORK_ELEMENT: RefCell<Option<FrameworkElement>> = const { RefCell::new(None) };
@@ -65,8 +62,6 @@ thread_local! {
     static UNHANDLED_EXCEPTION_HANDLER: RefCell<Option<windows_core::EventRevoker>> =
         const { RefCell::new(None) };
     static THEME_CHANGED_CALLBACK: RefCell<Option<Rc<dyn Fn()>>> = const { RefCell::new(None) };
-    static TITLEBAR_ADAPTER: RefCell<Option<Iuxc::TitleBarWindowAdapter>> =
-        const { RefCell::new(None) };
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -127,68 +122,18 @@ fn pending_backdrop() -> Option<Backdrop> {
     PENDING_BACKDROP.with(|pending| pending.take())
 }
 
-fn load_runtime_pris() -> windows_core::Result<()> {
-    let pri_path = current_exe_sibling("Islands.UI.Xaml.Controls.pri")?;
-    if !pri_path.exists() {
-        crate::diagnostics::emit("islands_reactor: no XAML PRI files found beside executable\n");
-        return Ok(());
-    }
-
-    let path = pri_path.display().to_string();
-    let pri_file = StorageFile::GetFileFromPathAsync(&path)
-        .map_err(|err| {
-            crate::diagnostics::emit(&format!(
-                "islands_reactor: StorageFile::GetFileFromPathAsync failed for {}: {err:?}\n",
-                pri_path.display()
-            ));
-            err
-        })?
-        .join()
-        .map_err(|err| {
-            crate::diagnostics::emit(&format!(
-                "islands_reactor: StorageFile::GetFileFromPathAsync join failed for {}: {err:?}\n",
-                pri_path.display()
-            ));
-            err
-        })?;
-    let files = windows_collections::IVector::<IStorageFile>::from(vec![Some(
-        pri_file.cast::<IStorageFile>()?,
-    )]);
-    let resource_manager = ResourceManager::get_Current().map_err(|err| {
-        crate::diagnostics::emit(&format!(
-            "islands_reactor: ResourceManager::Current failed: {err:?}\n"
-        ));
-        err
-    })?;
-    resource_manager.LoadPriFiles(&files).map_err(|err| {
-        crate::diagnostics::emit(&format!(
-            "islands_reactor: ResourceManager::LoadPriFiles failed: {err:?}\n"
-        ));
-        err
-    })?;
-    Ok(())
-}
-
-fn current_exe_sibling(file_name: &str) -> windows_core::Result<PathBuf> {
-    let mut path = std::env::current_exe().map_err(|err| {
-        windows_core::Error::new(windows_core::HRESULT(0x80004005u32 as i32), err.to_string())
-    })?;
-    path.set_file_name(file_name);
-    Ok(path)
-}
-
 fn install_xaml_exception_logging() {
-    let Ok(app) = Application::get_Current() else {
+    let Ok(app) = Application::Current() else {
         return;
     };
     UNHANDLED_EXCEPTION_HANDLER.with(|slot| {
         if slot.borrow().is_some() {
             return;
         }
-        let revoker = app.add_UnhandledException(|_, args| {
+        let revoker = app.UnhandledException(|_, args| {
             if let Some(args) = args.as_ref() {
-                let hr = args.get_Exception().map(|v| v.0).unwrap_or_default();
-                let message = args.get_Message().unwrap_or_default();
+                let hr = args.Exception().map(|v| v.0).unwrap_or_default();
+                let message = args.Message().unwrap_or_default();
                 crate::diagnostics::emit(&format!(
                     "islands_reactor: XAML unhandled exception 0x{hr:08X}: {message}\n"
                 ));
@@ -256,17 +201,12 @@ impl ReactorHost {
         F: FnOnce(&mut crate::reconcile::Reconciler<WinUIBackend>),
     {
         let backdrop = backdrop.or_else(pending_backdrop);
-        let application = match Application::get_Current() {
+        let application = match Application::Current() {
             Ok(application) => application,
             Err(_) => create_island_application()?,
         };
         let xaml_manager = WindowsXamlManager::InitializeForCurrentThread()?;
         install_xaml_exception_logging();
-        if let Err(err) = load_runtime_pris() {
-            crate::diagnostics::emit(&format!(
-                "islands_reactor: Islands.UI.Xaml PRI load failed: {err:?}\n"
-            ));
-        }
         initialize_core_window_handle();
 
         let hwnd = create_main_window(title.as_ref(), size, backdrop)?;
@@ -290,7 +230,7 @@ impl ReactorHost {
         let backdrop_content_host = create_backdrop_content_host(backdrop)?;
         if let Some(content_host) = backdrop_content_host.as_ref() {
             let content_host_ui: UIElement = content_host.cast()?;
-            xaml_source.put_Content(&content_host_ui)?;
+            xaml_source.SetContent(&content_host_ui)?;
         }
 
         let dispatcher = WinUIDispatcher::for_current_thread()?;
@@ -320,9 +260,9 @@ impl ReactorHost {
                     && let Ok(ui_element) = ui.cast::<UIElement>()
                 {
                     if let Some(content_host) = content_host_for_post_render.as_ref() {
-                        let _ = content_host.put_Content(&ui_element);
+                        let _ = content_host.SetChild(&ui_element);
                     } else {
-                        let _ = source_for_post_render.put_Content(&ui_element);
+                        let _ = source_for_post_render.SetContent(&ui_element);
                     }
                     last_for_hook.set(Some(rid));
                     if let Ok(fe) = ui_element.cast::<FrameworkElement>() {
@@ -393,7 +333,7 @@ impl Drop for ReactorHost {
     fn drop(&mut self) {
         self._system_theme_subscription = None;
         self.render_host.clear_callbacks();
-        let _ = self._xaml_source.put_Content(None);
+        let _ = self._xaml_source.SetContent(None);
         ROOT_FRAMEWORK_ELEMENT.with(|cell| {
             *cell.borrow_mut() = None;
         });
@@ -410,9 +350,6 @@ impl Drop for ReactorHost {
         TITLEBAR_HWND.store(std::ptr::null_mut(), Ordering::Relaxed);
         TITLEBAR_ENABLED.store(false, Ordering::Relaxed);
         TITLEBAR_HEIGHT_DIPS.store(40, Ordering::Relaxed);
-        TITLEBAR_ADAPTER.with(|slot| {
-            *slot.borrow_mut() = None;
-        });
     }
 }
 
@@ -528,10 +465,9 @@ unsafe extern "system" fn wnd_proc(
             }
             unsafe { DefWindowProcW(hwnd, message, wparam, lparam) }
         }
-        WM_ACTIVATE if custom_titlebar_enabled() => {
-            notify_titlebar_window_activated((wparam & 0xffff) != 0);
-            unsafe { DefWindowProcW(hwnd, message, wparam, lparam) }
-        }
+        WM_ACTIVATE if custom_titlebar_enabled() => unsafe {
+            DefWindowProcW(hwnd, message, wparam, lparam)
+        },
         WM_SIZE => {
             resize_xaml_island(hwnd);
             resize_titlebar_overlay(hwnd);
@@ -556,9 +492,6 @@ unsafe extern "system" fn wnd_proc(
             TITLEBAR_HEIGHT_DIPS.store(40, Ordering::Relaxed);
             TITLEBAR_DRAG_LEFT_DIPS.store(0, Ordering::Relaxed);
             TITLEBAR_DRAG_WIDTH_DIPS.store(1, Ordering::Relaxed);
-            TITLEBAR_ADAPTER.with(|slot| {
-                *slot.borrow_mut() = None;
-            });
             0
         }
         _ => unsafe { DefWindowProcW(hwnd, message, wparam, lparam) },
@@ -585,7 +518,6 @@ fn sync_custom_titlebar(hwnd: HWND, titlebar_state: Option<TitleBarState>) {
                 Ordering::Relaxed,
             );
             if let Some(titlebar_hwnd) = ensure_titlebar_overlay(hwnd) {
-                configure_titlebar_adapter(hwnd, titlebar_hwnd, Some(state.adapter));
                 unsafe {
                     let _ = ShowWindow(titlebar_hwnd, SW_SHOW);
                 }
@@ -593,7 +525,6 @@ fn sync_custom_titlebar(hwnd: HWND, titlebar_state: Option<TitleBarState>) {
             }
         }
     } else {
-        configure_titlebar_adapter(hwnd, std::ptr::null_mut(), None);
         let raw_titlebar = TITLEBAR_HWND.load(Ordering::Relaxed);
         if !raw_titlebar.is_null() {
             unsafe {
@@ -624,31 +555,6 @@ fn sync_custom_titlebar(hwnd: HWND, titlebar_state: Option<TitleBarState>) {
 
 fn custom_titlebar_enabled() -> bool {
     TITLEBAR_ENABLED.load(Ordering::Relaxed)
-}
-
-fn configure_titlebar_adapter(
-    parent: HWND,
-    titlebar_hwnd: HWND,
-    adapter: Option<Iuxc::TitleBarWindowAdapter>,
-) {
-    TITLEBAR_ADAPTER.with(|slot| {
-        *slot.borrow_mut() = adapter.clone();
-    });
-
-    let Some(adapter) = adapter else {
-        return;
-    };
-
-    let _ = adapter.put_WindowHandle(parent as isize as i64);
-    let right_inset = CAPTION_BUTTON_WIDTH_DIPS * 3.0;
-    let _ = adapter.SetCaptionInsets(0.0, right_inset);
-    if let Ok(window_titlebar) = adapter.get_WindowTitleBar() {
-        let _ = window_titlebar.put_ExtendsContentIntoTitleBar(true);
-        let _ = window_titlebar.put_LeftInset(0.0);
-        let _ = window_titlebar.put_RightInset(right_inset);
-    }
-
-    apply_titlebar_window_region(parent, titlebar_hwnd);
 }
 
 fn ensure_titlebar_overlay(parent: HWND) -> Option<HWND> {
@@ -719,7 +625,6 @@ fn resize_titlebar_overlay(parent: HWND) {
                 bounds.height,
                 (SWP_NOACTIVATE | SWP_SHOWWINDOW) as u32,
             );
-            apply_titlebar_window_region(parent, raw_titlebar.cast());
         }
     }
 }
@@ -815,10 +720,6 @@ fn try_hit_test_titlebar(hwnd: HWND, lparam: LPARAM) -> Option<i32> {
         }
     }
 
-    if let Some(hit) = titlebar_adapter_hit_test(client_rect, screen_point) {
-        return Some(hit);
-    }
-
     let titlebar_rect = offset_pixel_rect(
         manual_titlebar_drag_bounds_px(hwnd)?,
         client_rect.left,
@@ -829,41 +730,6 @@ fn try_hit_test_titlebar(hwnd: HWND, lparam: LPARAM) -> Option<i32> {
     } else {
         Some(HTCLIENT as i32)
     }
-}
-
-fn titlebar_adapter_hit_test(client_rect: RECT, screen_point: POINT) -> Option<i32> {
-    TITLEBAR_ADAPTER.with(|slot| {
-        let adapter = slot.borrow().as_ref()?.clone();
-        adapter
-            .HitTest(
-                screen_point.x,
-                screen_point.y,
-                client_rect.left,
-                client_rect.top,
-            )
-            .ok()
-            .map(|hit| if hit == 0 { HTCLIENT as i32 } else { hit })
-    })
-}
-
-fn apply_titlebar_window_region(parent: HWND, titlebar_hwnd: HWND) {
-    if titlebar_hwnd.is_null() {
-        return;
-    }
-
-    let Some(client_rect) = client_rect_in_screen(parent) else {
-        return;
-    };
-
-    TITLEBAR_ADAPTER.with(|slot| {
-        if let Some(adapter) = slot.borrow().as_ref() {
-            let _ = adapter.ApplyTitleBarWindowRegion(
-                titlebar_hwnd as isize as i64,
-                client_rect.left,
-                client_rect.top,
-            );
-        }
-    });
 }
 
 fn client_rect_in_screen(hwnd: HWND) -> Option<RECT> {
@@ -932,14 +798,6 @@ fn send_titlebar_syscommand(command: i32) {
     }
 }
 
-fn notify_titlebar_window_activated(active: bool) {
-    TITLEBAR_ADAPTER.with(|slot| {
-        if let Some(adapter) = slot.borrow().as_ref() {
-            let _ = adapter.NotifyWindowActivated(active);
-        }
-    });
-}
-
 fn forward_titlebar_nc_message(message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     let parent = parent_hwnd();
     if parent.is_null() {
@@ -992,7 +850,7 @@ fn subscribe_system_theme_changed(hwnd: HWND) -> Option<SystemThemeSubscription>
         }
     };
     let raw_hwnd = hwnd as isize;
-    let revoker = match settings.add_ColorValuesChanged(move |_, _| {
+    let revoker = match settings.ColorValuesChanged(move |_, _| {
         let hwnd: HWND = raw_hwnd as *mut c_void as _;
         unsafe {
             let _ = PostMessageW(Some(hwnd), WM_ISLANDS_REACTOR_SYSTEM_THEME_CHANGED, 0, 0);
@@ -1045,7 +903,7 @@ fn apply_requested_theme(fe: &FrameworkElement, theme: RequestedTheme) {
     let element_theme = resolve_requested_theme(theme);
     let _ = fe
         .cast::<IFrameworkElement2>()
-        .and_then(|fe| fe.put_RequestedTheme(element_theme));
+        .and_then(|fe| fe.SetRequestedTheme(element_theme));
     update_color_scheme(element_theme);
 }
 
@@ -1074,7 +932,7 @@ fn system_uses_light_theme() -> bool {
 }
 
 fn is_color_light(color: crate::bindings::Color) -> bool {
-    5 * color.G as u16 + 2 * color.R as u16 + color.B as u16 > 8 * 128
+    5 * color.g as u16 + 2 * color.r as u16 + color.b as u16 > 8 * 128
 }
 
 fn update_window_theme_from_requested() {
@@ -1131,19 +989,12 @@ fn set_window_dark_mode(hwnd: HWND, enabled: bool) {
 
 fn create_backdrop_content_host(
     backdrop: Option<Backdrop>,
-) -> windows_core::Result<Option<ContentControl>> {
+) -> windows_core::Result<Option<crate::bindings::Border>> {
     if backdrop.is_none() || !supports_system_backdrop() {
         return Ok(None);
     }
 
-    let content_host: ContentControl = XamlReader::Load(
-        r#"<ContentControl
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    HorizontalContentAlignment="Stretch"
-    VerticalContentAlignment="Stretch"
-    Background="Transparent" />"#,
-    )?
-    .cast()?;
+    let content_host = crate::bindings::Border::new()?;
     Ok(Some(content_host))
 }
 
@@ -1337,7 +1188,7 @@ fn subscribe_actual_theme_changed(fe: &FrameworkElement) {
     let _ = fe
         .cast::<IFrameworkElement6>()
         .and_then(|fe| {
-            fe.add_ActualThemeChanged(move |sender, _| {
+            fe.ActualThemeChanged(move |sender, _| {
                 if let Some(fe) = sender.as_ref() {
                     update_color_scheme_from(fe);
                 }
@@ -1351,7 +1202,7 @@ fn subscribe_actual_theme_changed(fe: &FrameworkElement) {
 fn update_color_scheme_from(fe: &FrameworkElement) {
     if let Ok(theme) = fe
         .cast::<IFrameworkElement6>()
-        .and_then(|fe| fe.get_ActualTheme())
+        .and_then(|fe| fe.ActualTheme())
     {
         update_color_scheme(theme);
     }

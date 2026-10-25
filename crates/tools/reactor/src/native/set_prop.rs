@@ -163,7 +163,6 @@ pub fn generate(controls: &[Control], resolver: &MetadataResolver) -> String {
         use super::super::*;
         use super::super::convert::string_as_textblock;
         use crate::bindings as Xaml;
-        use crate::bindings_iuxc as Iuxc;
         /// Try to handle a `set_prop` call via generated dispatch.
         /// Returns `Ok(true)` if handled, `Ok(false)` to fall through.
         pub(crate) fn dispatch(
@@ -407,7 +406,7 @@ fn render_body(body: &Body, wildcard: bool, handle_name: Option<&str>) -> TokenS
             value_variant,
         } => {
             let cast = cast_tokens(module, iface, wildcard, handle_name);
-            let m = ident(method);
+            let m = ident(&bindgen_method_name(method));
             let arg = arg_tokens(value_variant);
             quote! { #cast.#m(#arg)?; }
         }
@@ -418,7 +417,7 @@ fn render_body(body: &Body, wildcard: bool, handle_name: Option<&str>) -> TokenS
             value_variant,
         } => {
             let cast = cast_tokens(module, iface, wildcard, handle_name);
-            let m = ident(method);
+            let m = ident(&bindgen_method_name(method));
             let arg = arg_tokens(value_variant);
             quote! { #cast.#m(Some(#arg))?; }
         }
@@ -428,7 +427,7 @@ fn render_body(body: &Body, wildcard: bool, handle_name: Option<&str>) -> TokenS
             method,
         } => {
             let cast = cast_tokens(module, iface, wildcard, handle_name);
-            let m = ident(method);
+            let m = ident(&bindgen_method_name(method));
             quote! { #cast.#m(None)?; }
         }
         Body::IReference {
@@ -437,7 +436,7 @@ fn render_body(body: &Body, wildcard: bool, handle_name: Option<&str>) -> TokenS
             method,
         } => {
             let cast = cast_tokens(module, iface, wildcard, handle_name);
-            let m = ident(method);
+            let m = ident(&bindgen_method_name(method));
             quote! {
                 let insp = windows_reference::IReference::from(v.as_str());
                 #cast.#m(&insp)?;
@@ -449,7 +448,7 @@ fn render_body(body: &Body, wildcard: bool, handle_name: Option<&str>) -> TokenS
             method,
         } => {
             let cast = cast_tokens(module, iface, wildcard, handle_name);
-            let m = ident(method);
+            let m = ident(&bindgen_method_name(method));
             quote! {
                 let tb = string_as_textblock(v.as_str())?;
                 #cast.#m(&tb)?;
@@ -464,7 +463,7 @@ fn render_body(body: &Body, wildcard: bool, handle_name: Option<&str>) -> TokenS
         } => {
             let cast = cast_tokens(module, iface, wildcard, handle_name);
             let module = ident(enum_module);
-            let method = ident(method);
+            let method = ident(&bindgen_method_name(method));
             let wt = ident(winui_type);
             quote! {
                 #cast.#method(#module::#wt(*v))?;

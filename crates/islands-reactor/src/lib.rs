@@ -41,7 +41,7 @@ pub(crate) use generated::*;
 #[allow(unused_imports)]
 pub(crate) use ir::*;
 #[allow(unused_imports)]
-pub(crate) use native::{bindings, bindings_iuxc, diagnostics};
+pub(crate) use native::{bindings, diagnostics};
 #[allow(unused_imports)]
 pub(crate) use reconcile::*;
 #[allow(unused_imports)]

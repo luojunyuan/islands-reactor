@@ -28,11 +28,11 @@ impl DispatcherTimer {
         F: Fn() + 'static,
     {
         let timer = Xaml::DispatcherTimer::new()?;
-        timer.put_Interval(duration_to_timespan(interval))?;
+        timer.SetInterval(duration_to_timespan(interval))?;
 
         let timer_for_cb = timer.clone();
         let callback = UiThreadCallback(f);
-        let tick_revoker = timer.add_Tick(move |_, _| {
+        let tick_revoker = timer.Tick(move |_, _| {
             if !repeating {
                 let _ = timer_for_cb.Stop();
             }
@@ -71,7 +71,7 @@ where
     F: Fn() + 'static,
 {
     let callback = UiThreadCallback(f);
-    let revoker = Xaml::CompositionTarget::add_Rendering(move |_, _| {
+    let revoker = Xaml::CompositionTarget::Rendering(move |_, _| {
         callback.call();
     })?;
     Ok(Rendering { _revoker: revoker })
