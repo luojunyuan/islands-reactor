@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/islands-reactor",
+    "crates/islands-reactor-setup",
     "crates/tools/reactor",
     "samples/*",
 ]
