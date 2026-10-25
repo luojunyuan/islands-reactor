@@ -198,6 +198,12 @@ Windows.UI.Xaml.Shapes.IShape::{put_Fill, put_Stroke, put_StrokeThickness}
 Windows.UI.Xaml.Style::{CreateInstance}
 Windows.UI.Xaml.TextWrapping
 Windows.UI.Xaml.Thickness
+Windows.UI.Xaml.Automation.Peers.AutomationLiveSetting
+Windows.UI.Xaml.Automation.Peers.AutomationHeadingLevel
+Windows.UI.Xaml.Automation.AutomationProperties::{SetAutomationId, SetHeadingLevel, SetHelpText, SetLiveSetting, SetName}
+Windows.UI.Xaml.Automation.Peers.AutomationEvents
+Windows.UI.Xaml.Automation.Peers.AutomationPeer::{ListenerExists, RaiseAutomationEvent}
+Windows.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer::{CreatePeerForElement}
 Windows.UI.Xaml.UIElement
 Windows.UI.Xaml.IUIElement::{put_Opacity, put_Visibility}
 Windows.UI.Xaml.Visibility

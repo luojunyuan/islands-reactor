@@ -14,6 +14,8 @@ use std::rc::{Rc, Weak};
 use windows_core::{Error, PCWSTR, Result};
 use windows_window::{Window, WindowBuilder};
 
+use crate::native::transient_menu::TransientMenu;
+
 const CALLBACK_MESSAGE: u32 = WM_USER as u32 + 1;
 const ICON_ID: u32 = 1;
 
@@ -224,6 +226,7 @@ impl NotifyIcon {
     pub fn new(path: impl Into<PathBuf>) -> NotifyIconBuilder {
         NotifyIconBuilder {
             handler: None,
+            context_menu: None,
             icon: path.into(),
             tooltip: None,
         }
@@ -268,6 +271,7 @@ impl Drop for NotifyIcon {
 /// Configures a [`NotifyIcon`].
 pub struct NotifyIconBuilder {
     handler: Option<EventHandler>,
+    context_menu: Option<TransientMenu>,
     icon: PathBuf,
     tooltip: Option<String>,
 }
@@ -288,6 +292,12 @@ impl NotifyIconBuilder {
         self
     }
 
+    /// Shows a native popup menu when the user opens the icon's context menu.
+    pub fn context_menu(mut self, menu: TransientMenu) -> Self {
+        self.context_menu = Some(menu);
+        self
+    }
+
     /// Creates the hidden callback window and adds the icon to the notification area.
     pub fn build(self) -> Result<NotifyIcon> {
         let taskbar_created = register_taskbar_created()?;
@@ -295,9 +305,13 @@ impl NotifyIconBuilder {
             icon: OwnedIcon::load(&self.icon)?,
             tooltip: self.tooltip.as_deref().map(tooltip_text).transpose()?,
         }));
-        let callback_window =
-            callback_window(self.handler, taskbar_created, Rc::downgrade(&registration))
-                .create()?;
+        let callback_window = callback_window(
+            self.handler,
+            self.context_menu,
+            taskbar_created,
+            Rc::downgrade(&registration),
+        )
+        .create()?;
         allow_message(callback_window.hwnd(), CALLBACK_MESSAGE)?;
         allow_message(callback_window.hwnd(), taskbar_created)?;
         registration.borrow().add(callback_window.hwnd())?;
@@ -310,6 +324,7 @@ impl NotifyIconBuilder {
 
 fn callback_window(
     handler: Option<EventHandler>,
+    context_menu: Option<TransientMenu>,
     taskbar_created: u32,
     registration: Weak<RefCell<Registration>>,
 ) -> WindowBuilder {
@@ -333,6 +348,14 @@ fn callback_window(
             } else {
                 return None;
             };
+            if let Some(NotifyIconEvent::ContextMenu { position }) = event
+                && let Some(menu) = &context_menu
+                && let Err(error) = menu.show(hwnd, position)
+            {
+                crate::diagnostics::emit(&format!(
+                    "islands_reactor: failed to show notification-area menu: {error}\n"
+                ));
+            }
             if let Some(event) = event
                 && let Some(handler) = &handler
             {

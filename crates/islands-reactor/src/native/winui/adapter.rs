@@ -1,20 +1,27 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use windows_core::{IInspectable, Interface, Result};
 
 use crate::bindings as Xaml;
 use crate::ir::*;
 use crate::*;
 
-mod convert;
+#[path = "../generated.rs"]
 mod generated;
+
+pub(super) fn string_as_textblock(text: &str) -> Result<IInspectable> {
+    let text_block = Xaml::TextBlock::new()?;
+    text_block.SetText(text)?;
+    text_block.cast()
+}
 
 /// Backend that creates native `Windows.UI.Xaml` controls for XAML Islands.
 pub struct WinUIBackend {
     controls: RefCell<HashMap<ControlId, Handle>>,
     event_revokers: RefCell<HashMap<(ControlId, Event), Vec<EventSubscription>>>,
+    live_regions: RefCell<HashSet<ControlId>>,
     templated_selection_revokers: RefCell<HashMap<ControlId, EventSubscription>>,
     templated_realizers: RefCell<HashMap<ControlId, Rc<dyn Fn(usize)>>>,
     parent_children: RefCell<HashMap<ControlId, Vec<ControlId>>>,
@@ -35,6 +42,7 @@ impl WinUIBackend {
         Self {
             controls: RefCell::new(HashMap::default()),
             event_revokers: RefCell::new(HashMap::default()),
+            live_regions: RefCell::new(HashSet::default()),
             templated_selection_revokers: RefCell::new(HashMap::default()),
             templated_realizers: RefCell::new(HashMap::default()),
             parent_children: RefCell::new(HashMap::default()),
@@ -68,6 +76,7 @@ impl WinUIBackend {
 
     pub(crate) fn shutdown(&self) {
         self.event_revokers.borrow_mut().clear();
+        self.live_regions.borrow_mut().clear();
         self.templated_selection_revokers.borrow_mut().clear();
         self.templated_realizers.borrow_mut().clear();
         self.templated_rows.borrow_mut().clear();
@@ -109,6 +118,61 @@ impl WinUIBackend {
             _ => return,
         };
         let _ = selector.SetSelectedIndex(index);
+    }
+
+    fn notify_live_regions(&self, id: ControlId) {
+        let live_regions = self.live_regions.borrow();
+        if live_regions.is_empty() {
+            return;
+        }
+
+        let parents = self.parent_children.borrow();
+        let mut current = Some(id);
+        let mut visited = HashSet::new();
+        let mut regions = Vec::new();
+        while let Some(current_id) = current {
+            if !visited.insert(current_id) {
+                break;
+            }
+            if live_regions.contains(&current_id) {
+                regions.push(current_id);
+            }
+            current = parents
+                .iter()
+                .find_map(|(parent, children)| children.contains(&current_id).then_some(*parent));
+        }
+        drop(parents);
+        drop(live_regions);
+
+        if regions.is_empty()
+            || !Xaml::AutomationPeer::ListenerExists(Xaml::AutomationEvents::LiveRegionChanged)
+                .unwrap_or(false)
+        {
+            return;
+        }
+        for region in regions {
+            let Some(element) = self
+                .get_ui_element(region)
+                .and_then(|element| element.cast::<Xaml::UIElement>().ok())
+            else {
+                continue;
+            };
+            match Xaml::FrameworkElementAutomationPeer::CreatePeerForElement(&element) {
+                Ok(peer) => {
+                    if let Err(error) =
+                        peer.RaiseAutomationEvent(Xaml::AutomationEvents::LiveRegionChanged)
+                    {
+                        crate::diagnostics::emit(&format!(
+                            "islands_reactor: failed to raise a live-region event: {error}\n"
+                        ));
+                    }
+                }
+                Err(error) if error.code().is_ok() => {}
+                Err(error) => crate::diagnostics::emit(&format!(
+                    "islands_reactor: failed to create an automation peer: {error}\n"
+                )),
+            }
+        }
     }
 
     fn set_prop_inner(&self, id: ControlId, prop: Prop, value: &PropValue) -> Result<()> {
@@ -732,7 +796,9 @@ impl Backend for WinUIBackend {
     }
 
     fn set_prop(&mut self, id: ControlId, prop: Prop, value: &PropValue) {
-        let _ = self.set_prop_inner(id, prop, value);
+        if self.set_prop_inner(id, prop, value).is_ok() && prop == Prop::Text {
+            self.notify_live_regions(id);
+        }
     }
 
     fn append_child(&mut self, parent: ControlId, child: ControlId) {
@@ -802,6 +868,7 @@ impl Backend for WinUIBackend {
         self.templated_rows.borrow_mut().remove(&id);
         self.templated_selected_indices.borrow_mut().remove(&id);
         self.theme_brush_registry.borrow_mut().remove(&id);
+        self.live_regions.borrow_mut().remove(&id);
     }
 
     fn attach_event(&mut self, id: ControlId, event: Event, handler: EventHandler) {
@@ -1302,6 +1369,30 @@ impl Backend for WinUIBackend {
         let _ = Xaml::ToolTipService::SetToolTip(&dep, inspectable.as_ref());
     }
 
+    fn set_accessibility(&mut self, id: ControlId, accessibility: &crate::AccessibilityModifiers) {
+        match accessibility.live_setting {
+            Some(crate::LiveSetting::Polite | crate::LiveSetting::Assertive) => {
+                self.live_regions.borrow_mut().insert(id);
+            }
+            Some(crate::LiveSetting::Off) | None => {
+                self.live_regions.borrow_mut().remove(&id);
+            }
+        }
+        let element = self
+            .controls
+            .borrow()
+            .get(&id)
+            .and_then(|handle| handle.as_framework_element().ok())
+            .and_then(|element| element.cast::<Xaml::DependencyObject>().ok());
+        if let Some(element) = element
+            && let Err(error) = super::automation::apply(&element, accessibility)
+        {
+            crate::diagnostics::emit(&format!(
+                "islands_reactor: failed to set UI Automation properties: {error}\n"
+            ));
+        }
+    }
+
     fn get_native_element(&self, id: ControlId) -> Option<IInspectable> {
         self.get_ui_element(id)
     }
@@ -1363,60 +1454,13 @@ enum Handle {
 
 impl Handle {
     fn new(kind: ControlKind) -> Result<Self> {
+        if let Some(handle) = generated::create_handle(kind) {
+            return handle;
+        }
         Ok(match kind {
-            ControlKind::AutoSuggestBox => Self::AutoSuggestBox(Xaml::AutoSuggestBox::new()?),
-            ControlKind::Border => Self::Border(Xaml::Border::new()?),
-            ControlKind::Button => Self::Button(Xaml::Button::new()?),
-            ControlKind::CalendarDatePicker => {
-                Self::CalendarDatePicker(Xaml::CalendarDatePicker::new()?)
-            }
-            ControlKind::CalendarView => Self::CalendarView(Xaml::CalendarView::new()?),
-            ControlKind::Canvas => Self::Canvas(Xaml::Canvas::new()?),
-            ControlKind::CheckBox => Self::CheckBox(Xaml::CheckBox::new()?),
-            ControlKind::ColorPicker => Self::ColorPicker(Xaml::ColorPicker::new()?),
-            ControlKind::ComboBox => Self::ComboBox(Xaml::ComboBox::new()?),
-            ControlKind::CommandBar => Self::CommandBar(Xaml::CommandBar::new()?),
-            ControlKind::ContentDialog => Self::ContentDialog(Xaml::ContentDialog::new()?),
-            ControlKind::DatePicker => Self::DatePicker(Xaml::DatePicker::new()?),
-            ControlKind::DropDownButton => Self::DropDownButton(Xaml::DropDownButton::new()?),
-            ControlKind::Grid => Self::Grid(Xaml::Grid::new()?),
-            ControlKind::HyperlinkButton => Self::HyperlinkButton(Xaml::HyperlinkButton::new()?),
-            ControlKind::Image => Self::Image(Xaml::Image::new()?),
-            ControlKind::ListBox => Self::ListBox(Xaml::ListBox::new()?),
-            ControlKind::MenuBar => Self::MenuBar(Xaml::MenuBar::new()?),
-            ControlKind::PasswordBox => Self::PasswordBox(Xaml::PasswordBox::new()?),
-            ControlKind::PersonPicture => Self::PersonPicture(Xaml::PersonPicture::new()?),
-            ControlKind::Pivot => Self::Pivot(Xaml::Pivot::new()?),
-            ControlKind::PivotItem => Self::PivotItem(Xaml::PivotItem::new()?),
-            ControlKind::ProgressBar => Self::ProgressBar(Xaml::ProgressBar::new()?),
-            ControlKind::ProgressRing => Self::ProgressRing(Xaml::ProgressRing::new()?),
-            ControlKind::RadioButton => Self::RadioButton(Xaml::RadioButton::new()?),
-            ControlKind::RatingControl => Self::RatingControl(Xaml::RatingControl::new()?),
-            ControlKind::Rectangle => Self::Rectangle(Xaml::Rectangle::new()?),
-            ControlKind::RelativePanel => Self::RelativePanel(Xaml::RelativePanel::new()?),
-            ControlKind::RepeatButton => Self::RepeatButton(Xaml::RepeatButton::new()?),
-            ControlKind::RichEditBox => Self::RichEditBox(Xaml::RichEditBox::new()?),
-            ControlKind::RichTextBlock => Self::RichTextBlock(Xaml::RichTextBlock::new()?),
-            ControlKind::ScrollView => Self::ScrollView(Xaml::ScrollViewer::new()?),
-            ControlKind::ScrollViewer => Self::ScrollViewer(Xaml::ScrollViewer::new()?),
-            ControlKind::Slider => Self::Slider(Xaml::Slider::new()?),
-            ControlKind::SplitButton => Self::SplitButton(Xaml::SplitButton::new()?),
-            ControlKind::SplitView => Self::SplitView(Xaml::SplitView::new()?),
-            ControlKind::StackPanel => Self::StackPanel(Xaml::StackPanel::new()?),
-            ControlKind::TextBlock => Self::TextBlock(Xaml::TextBlock::new()?),
-            ControlKind::TextBox => Self::TextBox(Xaml::TextBox::new()?),
             ControlKind::TitleBar => Self::TitleBar(IslandTitleBar::new()?),
-            ControlKind::TimePicker => Self::TimePicker(Xaml::TimePicker::new()?),
-            ControlKind::ToggleButton => Self::ToggleButton(Xaml::ToggleButton::new()?),
-            ControlKind::ToggleSwitch => Self::ToggleSwitch(Xaml::ToggleSwitch::new()?),
-            ControlKind::TreeView => Self::TreeView(Xaml::TreeView::new()?),
-            ControlKind::Viewbox => Self::Viewbox(Xaml::Viewbox::new()?),
-            ControlKind::Ellipse => Self::Ellipse(Xaml::Ellipse::new()?),
-            ControlKind::Line => Self::Line(Xaml::Line::new()?),
-            ControlKind::ListView => Self::ListView(Xaml::ListView::new()?),
-            ControlKind::GridView => Self::GridView(Xaml::GridView::new()?),
-            ControlKind::FlipView => Self::FlipView(Xaml::FlipView::new()?),
             ControlKind::SelectorBar => Self::SelectorBar(IslandSelectorBar::new()?),
+            _ => unreachable!("tool-reactor has no constructor for {kind:?}"),
         })
     }
 
@@ -1768,13 +1812,13 @@ impl IslandTitleBar {
         let caption_button_revokers = vec![
             minimize
                 .cast::<Xaml::ButtonBase>()?
-                .Click(|_, _| super::host::minimize_active_window())?,
+                .Click(|_, _| super::hosting::minimize_active_window())?,
             maximize
                 .cast::<Xaml::ButtonBase>()?
-                .Click(|_, _| super::host::toggle_active_window_maximize())?,
+                .Click(|_, _| super::hosting::toggle_active_window_maximize())?,
             close
                 .cast::<Xaml::ButtonBase>()?
-                .Click(|_, _| super::host::close_active_window())?,
+                .Click(|_, _| super::hosting::close_active_window())?,
         ];
 
         let titlebar = Self {

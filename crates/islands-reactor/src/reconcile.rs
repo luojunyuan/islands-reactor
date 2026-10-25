@@ -531,7 +531,7 @@ mod child {
         /// different actual slot. The reconciler then updated the wrong
         /// control: e.g. it pushed a `Click` binding (from a Button element)
         /// onto a TextBlock control, which crashed the WinUI backend with
-        /// `STATUS_STACK_BUFFER_OVERRUN` (see `winui/backend.rs::attach_event`).
+        /// `STATUS_STACK_BUFFER_OVERRUN` (see `winui/adapter.rs::attach_event`).
         ///
         /// Scenario: a vertical StackPanel with five keyed children
         /// `[empty(TextBlock), X(Button), A(Button), B(Button), C(Button)]`

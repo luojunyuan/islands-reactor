@@ -406,7 +406,7 @@ pub(crate) mod element {
     /// To add a new built-in widget element: add a row here, define the widget
     /// struct and its `impl Widget`, add the matching `ControlKind` variant in
     /// `ir.rs`, and add the matching row in
-    /// `winui/backend.rs::define_handles!`.
+    /// `winui/adapter.rs`.
     macro_rules! define_element {
     ( $( $variant:ident ),* $(,)? ) => {
         /// Sum type of every element kind the reconciler can mount; widget

@@ -253,6 +253,257 @@ impl windows_core::RuntimeType for AutoSuggestionBoxTextChangeReason {
     );
 }
 #[repr(transparent)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct AutomationEvents(pub i32);
+impl AutomationEvents {
+    pub const ToolTipOpened: Self = Self(0);
+    pub const ToolTipClosed: Self = Self(1);
+    pub const MenuOpened: Self = Self(2);
+    pub const MenuClosed: Self = Self(3);
+    pub const AutomationFocusChanged: Self = Self(4);
+    pub const InvokePatternOnInvoked: Self = Self(5);
+    pub const SelectionItemPatternOnElementAddedToSelection: Self = Self(6);
+    pub const SelectionItemPatternOnElementRemovedFromSelection: Self = Self(7);
+    pub const SelectionItemPatternOnElementSelected: Self = Self(8);
+    pub const SelectionPatternOnInvalidated: Self = Self(9);
+    pub const TextPatternOnTextSelectionChanged: Self = Self(10);
+    pub const TextPatternOnTextChanged: Self = Self(11);
+    pub const AsyncContentLoaded: Self = Self(12);
+    pub const PropertyChanged: Self = Self(13);
+    pub const StructureChanged: Self = Self(14);
+    pub const DragStart: Self = Self(15);
+    pub const DragCancel: Self = Self(16);
+    pub const DragComplete: Self = Self(17);
+    pub const DragEnter: Self = Self(18);
+    pub const DragLeave: Self = Self(19);
+    pub const Dropped: Self = Self(20);
+    pub const LiveRegionChanged: Self = Self(21);
+    pub const InputReachedTarget: Self = Self(22);
+    pub const InputReachedOtherElement: Self = Self(23);
+    pub const InputDiscarded: Self = Self(24);
+    pub const WindowClosed: Self = Self(25);
+    pub const WindowOpened: Self = Self(26);
+    pub const ConversionTargetChanged: Self = Self(27);
+    pub const TextEditTextChanged: Self = Self(28);
+    pub const LayoutInvalidated: Self = Self(29);
+}
+impl windows_core::imp::TypeKind for AutomationEvents {
+    type TypeKind = windows_core::imp::CopyType;
+}
+impl windows_core::RuntimeType for AutomationEvents {
+    const SIGNATURE: windows_core::imp::ConstBuffer = windows_core::imp::ConstBuffer::from_slice(
+        b"enum(Windows.UI.Xaml.Automation.Peers.AutomationEvents;i4)",
+    );
+}
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct AutomationHeadingLevel(pub i32);
+impl AutomationHeadingLevel {
+    pub const None: Self = Self(0);
+    pub const Level1: Self = Self(1);
+    pub const Level2: Self = Self(2);
+    pub const Level3: Self = Self(3);
+    pub const Level4: Self = Self(4);
+    pub const Level5: Self = Self(5);
+    pub const Level6: Self = Self(6);
+    pub const Level7: Self = Self(7);
+    pub const Level8: Self = Self(8);
+    pub const Level9: Self = Self(9);
+}
+impl windows_core::imp::TypeKind for AutomationHeadingLevel {
+    type TypeKind = windows_core::imp::CopyType;
+}
+impl windows_core::RuntimeType for AutomationHeadingLevel {
+    const SIGNATURE: windows_core::imp::ConstBuffer = windows_core::imp::ConstBuffer::from_slice(
+        b"enum(Windows.UI.Xaml.Automation.Peers.AutomationHeadingLevel;i4)",
+    );
+}
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct AutomationLiveSetting(pub i32);
+impl AutomationLiveSetting {
+    pub const Off: Self = Self(0);
+    pub const Polite: Self = Self(1);
+    pub const Assertive: Self = Self(2);
+}
+impl windows_core::imp::TypeKind for AutomationLiveSetting {
+    type TypeKind = windows_core::imp::CopyType;
+}
+impl windows_core::RuntimeType for AutomationLiveSetting {
+    const SIGNATURE: windows_core::imp::ConstBuffer = windows_core::imp::ConstBuffer::from_slice(
+        b"enum(Windows.UI.Xaml.Automation.Peers.AutomationLiveSetting;i4)",
+    );
+}
+#[repr(transparent)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AutomationPeer(windows_core::IUnknown);
+windows_core::imp::interface_hierarchy!(
+    AutomationPeer,
+    windows_core::IUnknown,
+    windows_core::IInspectable
+);
+windows_core::imp::required_hierarchy!(AutomationPeer, DependencyObject);
+impl AutomationPeer {
+    pub fn ListenerExists(eventid: AutomationEvents) -> windows_core::Result<bool> {
+        Self::IAutomationPeerStatics(|this| unsafe {
+            let mut result__ = core::mem::zeroed();
+            (windows_core::Interface::vtable(this).ListenerExists)(
+                windows_core::Interface::as_raw(this),
+                eventid,
+                &mut result__,
+            )
+            .map(|| result__)
+        })
+    }
+    fn IAutomationPeerStatics<R, F: FnOnce(&IAutomationPeerStatics) -> windows_core::Result<R>>(
+        callback: F,
+    ) -> windows_core::Result<R> {
+        static SHARED: windows_core::imp::FactoryCache<AutomationPeer, IAutomationPeerStatics> =
+            windows_core::imp::FactoryCache::new();
+        SHARED.call(callback)
+    }
+}
+impl windows_core::RuntimeType for AutomationPeer {
+    const SIGNATURE: windows_core::imp::ConstBuffer =
+        windows_core::imp::ConstBuffer::for_class::<Self, IAutomationPeer>();
+}
+unsafe impl windows_core::Interface for AutomationPeer {
+    type Vtable = <IAutomationPeer as windows_core::Interface>::Vtable;
+    const IID: windows_core::GUID = <IAutomationPeer as windows_core::Interface>::IID;
+}
+impl core::ops::Deref for AutomationPeer {
+    type Target = IAutomationPeer;
+    fn deref(&self) -> &Self::Target {
+        unsafe { core::mem::transmute(self) }
+    }
+}
+impl windows_core::RuntimeName for AutomationPeer {
+    const NAME: &'static str = "Windows.UI.Xaml.Automation.Peers.AutomationPeer";
+}
+unsafe impl Send for AutomationPeer {}
+unsafe impl Sync for AutomationPeer {}
+#[repr(transparent)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AutomationProperties(windows_core::IUnknown);
+windows_core::imp::interface_hierarchy!(
+    AutomationProperties,
+    windows_core::IUnknown,
+    windows_core::IInspectable
+);
+impl AutomationProperties {
+    pub fn SetAutomationId<P0>(element: P0, value: &str) -> windows_core::Result<()>
+    where
+        P0: windows_core::Param<DependencyObject>,
+    {
+        Self::IAutomationPropertiesStatics(|this| unsafe {
+            (windows_core::Interface::vtable(this).SetAutomationId)(
+                windows_core::Interface::as_raw(this),
+                element.param().abi(),
+                core::mem::transmute_copy(&windows_core::HSTRING::from(value)),
+            )
+            .ok()
+        })
+    }
+    pub fn SetHelpText<P0>(element: P0, value: &str) -> windows_core::Result<()>
+    where
+        P0: windows_core::Param<DependencyObject>,
+    {
+        Self::IAutomationPropertiesStatics(|this| unsafe {
+            (windows_core::Interface::vtable(this).SetHelpText)(
+                windows_core::Interface::as_raw(this),
+                element.param().abi(),
+                core::mem::transmute_copy(&windows_core::HSTRING::from(value)),
+            )
+            .ok()
+        })
+    }
+    pub fn SetName<P0>(element: P0, value: &str) -> windows_core::Result<()>
+    where
+        P0: windows_core::Param<DependencyObject>,
+    {
+        Self::IAutomationPropertiesStatics(|this| unsafe {
+            (windows_core::Interface::vtable(this).SetName)(
+                windows_core::Interface::as_raw(this),
+                element.param().abi(),
+                core::mem::transmute_copy(&windows_core::HSTRING::from(value)),
+            )
+            .ok()
+        })
+    }
+    pub fn SetLiveSetting<P0>(element: P0, value: AutomationLiveSetting) -> windows_core::Result<()>
+    where
+        P0: windows_core::Param<DependencyObject>,
+    {
+        Self::IAutomationPropertiesStatics(|this| unsafe {
+            (windows_core::Interface::vtable(this).SetLiveSetting)(
+                windows_core::Interface::as_raw(this),
+                element.param().abi(),
+                value,
+            )
+            .ok()
+        })
+    }
+    pub fn SetHeadingLevel<P0>(
+        element: P0,
+        value: AutomationHeadingLevel,
+    ) -> windows_core::Result<()>
+    where
+        P0: windows_core::Param<DependencyObject>,
+    {
+        Self::IAutomationPropertiesStatics7(|this| unsafe {
+            (windows_core::Interface::vtable(this).SetHeadingLevel)(
+                windows_core::Interface::as_raw(this),
+                element.param().abi(),
+                value,
+            )
+            .ok()
+        })
+    }
+    fn IAutomationPropertiesStatics<
+        R,
+        F: FnOnce(&IAutomationPropertiesStatics) -> windows_core::Result<R>,
+    >(
+        callback: F,
+    ) -> windows_core::Result<R> {
+        static SHARED: windows_core::imp::FactoryCache<
+            AutomationProperties,
+            IAutomationPropertiesStatics,
+        > = windows_core::imp::FactoryCache::new();
+        SHARED.call(callback)
+    }
+    fn IAutomationPropertiesStatics7<
+        R,
+        F: FnOnce(&IAutomationPropertiesStatics7) -> windows_core::Result<R>,
+    >(
+        callback: F,
+    ) -> windows_core::Result<R> {
+        static SHARED: windows_core::imp::FactoryCache<
+            AutomationProperties,
+            IAutomationPropertiesStatics7,
+        > = windows_core::imp::FactoryCache::new();
+        SHARED.call(callback)
+    }
+}
+impl windows_core::RuntimeType for AutomationProperties {
+    const SIGNATURE: windows_core::imp::ConstBuffer =
+        windows_core::imp::ConstBuffer::for_class::<Self, IAutomationProperties>();
+}
+unsafe impl windows_core::Interface for AutomationProperties {
+    type Vtable = <IAutomationProperties as windows_core::Interface>::Vtable;
+    const IID: windows_core::GUID = <IAutomationProperties as windows_core::Interface>::IID;
+}
+impl core::ops::Deref for AutomationProperties {
+    type Target = IAutomationProperties;
+    fn deref(&self) -> &Self::Target {
+        unsafe { core::mem::transmute(self) }
+    }
+}
+impl windows_core::RuntimeName for AutomationProperties {
+    const NAME: &'static str = "Windows.UI.Xaml.Automation.AutomationProperties";
+}
+unsafe impl Send for AutomationProperties {}
+unsafe impl Sync for AutomationProperties {}
+#[repr(transparent)]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BitmapImage(windows_core::IUnknown);
 windows_core::imp::interface_hierarchy!(
@@ -2074,6 +2325,67 @@ unsafe impl Send for FrameworkElement {}
 unsafe impl Sync for FrameworkElement {}
 #[repr(transparent)]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FrameworkElementAutomationPeer(windows_core::IUnknown);
+windows_core::imp::interface_hierarchy!(
+    FrameworkElementAutomationPeer,
+    windows_core::IUnknown,
+    windows_core::IInspectable
+);
+windows_core::imp::required_hierarchy!(
+    FrameworkElementAutomationPeer,
+    AutomationPeer,
+    DependencyObject
+);
+impl FrameworkElementAutomationPeer {
+    pub fn CreatePeerForElement<P0>(element: P0) -> windows_core::Result<AutomationPeer>
+    where
+        P0: windows_core::Param<UIElement>,
+    {
+        Self::IFrameworkElementAutomationPeerStatics(|this| unsafe {
+            let mut result__ = core::mem::zeroed();
+            (windows_core::Interface::vtable(this).CreatePeerForElement)(
+                windows_core::Interface::as_raw(this),
+                element.param().abi(),
+                &mut result__,
+            )
+            .and_then(|| windows_core::imp::Type::from_abi(result__))
+        })
+    }
+    fn IFrameworkElementAutomationPeerStatics<
+        R,
+        F: FnOnce(&IFrameworkElementAutomationPeerStatics) -> windows_core::Result<R>,
+    >(
+        callback: F,
+    ) -> windows_core::Result<R> {
+        static SHARED: windows_core::imp::FactoryCache<
+            FrameworkElementAutomationPeer,
+            IFrameworkElementAutomationPeerStatics,
+        > = windows_core::imp::FactoryCache::new();
+        SHARED.call(callback)
+    }
+}
+impl windows_core::RuntimeType for FrameworkElementAutomationPeer {
+    const SIGNATURE: windows_core::imp::ConstBuffer =
+        windows_core::imp::ConstBuffer::for_class::<Self, IFrameworkElementAutomationPeer>();
+}
+unsafe impl windows_core::Interface for FrameworkElementAutomationPeer {
+    type Vtable = <IFrameworkElementAutomationPeer as windows_core::Interface>::Vtable;
+    const IID: windows_core::GUID =
+        <IFrameworkElementAutomationPeer as windows_core::Interface>::IID;
+}
+impl core::ops::Deref for FrameworkElementAutomationPeer {
+    type Target = IFrameworkElementAutomationPeer;
+    fn deref(&self) -> &Self::Target {
+        unsafe { core::mem::transmute(self) }
+    }
+}
+impl windows_core::RuntimeName for FrameworkElementAutomationPeer {
+    const NAME: &'static str = "Windows.UI.Xaml.Automation.Peers.FrameworkElementAutomationPeer";
+}
+unsafe impl Send for FrameworkElementAutomationPeer {}
+unsafe impl Sync for FrameworkElementAutomationPeer {}
+#[repr(transparent)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FrameworkTemplate(windows_core::IUnknown);
 windows_core::imp::interface_hierarchy!(
     FrameworkTemplate,
@@ -2809,6 +3121,147 @@ pub struct IAutoSuggestBoxTextChangedEventArgs_Vtbl {
     pub Reason: unsafe extern "system" fn(
         *mut core::ffi::c_void,
         *mut AutoSuggestionBoxTextChangeReason,
+    ) -> windows_core::HRESULT,
+}
+windows_core::imp::define_interface!(
+    IAutomationPeer,
+    IAutomationPeer_Vtbl,
+    0x35aac87a_62ee_4d3e_a24c_2bc8432d68b7
+);
+impl windows_core::RuntimeType for IAutomationPeer {
+    const SIGNATURE: windows_core::imp::ConstBuffer =
+        windows_core::imp::ConstBuffer::for_interface::<Self>();
+}
+impl IAutomationPeer {
+    pub fn RaiseAutomationEvent(&self, eventid: AutomationEvents) -> windows_core::Result<()> {
+        unsafe {
+            (windows_core::Interface::vtable(self).RaiseAutomationEvent)(
+                windows_core::Interface::as_raw(self),
+                eventid,
+            )
+            .ok()
+        }
+    }
+}
+#[repr(C)]
+pub struct IAutomationPeer_Vtbl {
+    pub base__: windows_core::IInspectable_Vtbl,
+    EventsSource: usize,
+    SetEventsSource: usize,
+    GetPattern: usize,
+    pub RaiseAutomationEvent: unsafe extern "system" fn(
+        *mut core::ffi::c_void,
+        AutomationEvents,
+    ) -> windows_core::HRESULT,
+}
+windows_core::imp::define_interface!(
+    IAutomationPeerStatics,
+    IAutomationPeerStatics_Vtbl,
+    0x562f7fb0_a331_4a9c_9dec_bfb7586fffff
+);
+impl windows_core::RuntimeType for IAutomationPeerStatics {
+    const SIGNATURE: windows_core::imp::ConstBuffer =
+        windows_core::imp::ConstBuffer::for_interface::<Self>();
+}
+#[repr(C)]
+pub struct IAutomationPeerStatics_Vtbl {
+    pub base__: windows_core::IInspectable_Vtbl,
+    pub ListenerExists: unsafe extern "system" fn(
+        *mut core::ffi::c_void,
+        AutomationEvents,
+        *mut bool,
+    ) -> windows_core::HRESULT,
+}
+windows_core::imp::define_interface!(
+    IAutomationProperties,
+    IAutomationProperties_Vtbl,
+    0x68d7232c_e622_48e9_af0b_1ffa33cc5cba
+);
+impl windows_core::RuntimeType for IAutomationProperties {
+    const SIGNATURE: windows_core::imp::ConstBuffer =
+        windows_core::imp::ConstBuffer::for_interface::<Self>();
+}
+#[repr(C)]
+pub struct IAutomationProperties_Vtbl {
+    pub base__: windows_core::IInspectable_Vtbl,
+}
+windows_core::imp::define_interface!(
+    IAutomationPropertiesStatics,
+    IAutomationPropertiesStatics_Vtbl,
+    0xb618fd7b_32d0_4970_9c42_7c039ac7be78
+);
+impl windows_core::RuntimeType for IAutomationPropertiesStatics {
+    const SIGNATURE: windows_core::imp::ConstBuffer =
+        windows_core::imp::ConstBuffer::for_interface::<Self>();
+}
+#[repr(C)]
+pub struct IAutomationPropertiesStatics_Vtbl {
+    pub base__: windows_core::IInspectable_Vtbl,
+    AcceleratorKeyProperty: usize,
+    GetAcceleratorKey: usize,
+    SetAcceleratorKey: usize,
+    AccessKeyProperty: usize,
+    GetAccessKey: usize,
+    SetAccessKey: usize,
+    AutomationIdProperty: usize,
+    GetAutomationId: usize,
+    pub SetAutomationId: unsafe extern "system" fn(
+        *mut core::ffi::c_void,
+        *mut core::ffi::c_void,
+        *mut core::ffi::c_void,
+    ) -> windows_core::HRESULT,
+    HelpTextProperty: usize,
+    GetHelpText: usize,
+    pub SetHelpText: unsafe extern "system" fn(
+        *mut core::ffi::c_void,
+        *mut core::ffi::c_void,
+        *mut core::ffi::c_void,
+    ) -> windows_core::HRESULT,
+    IsRequiredForFormProperty: usize,
+    GetIsRequiredForForm: usize,
+    SetIsRequiredForForm: usize,
+    ItemStatusProperty: usize,
+    GetItemStatus: usize,
+    SetItemStatus: usize,
+    ItemTypeProperty: usize,
+    GetItemType: usize,
+    SetItemType: usize,
+    LabeledByProperty: usize,
+    GetLabeledBy: usize,
+    SetLabeledBy: usize,
+    NameProperty: usize,
+    GetName: usize,
+    pub SetName: unsafe extern "system" fn(
+        *mut core::ffi::c_void,
+        *mut core::ffi::c_void,
+        *mut core::ffi::c_void,
+    ) -> windows_core::HRESULT,
+    LiveSettingProperty: usize,
+    GetLiveSetting: usize,
+    pub SetLiveSetting: unsafe extern "system" fn(
+        *mut core::ffi::c_void,
+        *mut core::ffi::c_void,
+        AutomationLiveSetting,
+    ) -> windows_core::HRESULT,
+}
+windows_core::imp::define_interface!(
+    IAutomationPropertiesStatics7,
+    IAutomationPropertiesStatics7_Vtbl,
+    0xf7e98bf3_8f91_4068_a4ad_b7b402d10a2c
+);
+impl windows_core::RuntimeType for IAutomationPropertiesStatics7 {
+    const SIGNATURE: windows_core::imp::ConstBuffer =
+        windows_core::imp::ConstBuffer::for_interface::<Self>();
+}
+#[repr(C)]
+pub struct IAutomationPropertiesStatics7_Vtbl {
+    pub base__: windows_core::IInspectable_Vtbl,
+    HeadingLevelProperty: usize,
+    GetHeadingLevel: usize,
+    pub SetHeadingLevel: unsafe extern "system" fn(
+        *mut core::ffi::c_void,
+        *mut core::ffi::c_void,
+        AutomationHeadingLevel,
     ) -> windows_core::HRESULT,
 }
 windows_core::imp::define_interface!(
@@ -5039,6 +5492,38 @@ pub struct IFrameworkElement6_Vtbl {
     ) -> windows_core::HRESULT,
     pub RemoveActualThemeChanged:
         unsafe extern "system" fn(*mut core::ffi::c_void, i64) -> windows_core::HRESULT,
+}
+windows_core::imp::define_interface!(
+    IFrameworkElementAutomationPeer,
+    IFrameworkElementAutomationPeer_Vtbl,
+    0xb90ad781_bfeb_4451_bd47_9f3a63ebd24a
+);
+impl windows_core::RuntimeType for IFrameworkElementAutomationPeer {
+    const SIGNATURE: windows_core::imp::ConstBuffer =
+        windows_core::imp::ConstBuffer::for_interface::<Self>();
+}
+#[repr(C)]
+pub struct IFrameworkElementAutomationPeer_Vtbl {
+    pub base__: windows_core::IInspectable_Vtbl,
+}
+windows_core::imp::define_interface!(
+    IFrameworkElementAutomationPeerStatics,
+    IFrameworkElementAutomationPeerStatics_Vtbl,
+    0xb9c0b997_2820_44a1_a5a8_9b801edc269e
+);
+impl windows_core::RuntimeType for IFrameworkElementAutomationPeerStatics {
+    const SIGNATURE: windows_core::imp::ConstBuffer =
+        windows_core::imp::ConstBuffer::for_interface::<Self>();
+}
+#[repr(C)]
+pub struct IFrameworkElementAutomationPeerStatics_Vtbl {
+    pub base__: windows_core::IInspectable_Vtbl,
+    FromElement: usize,
+    pub CreatePeerForElement: unsafe extern "system" fn(
+        *mut core::ffi::c_void,
+        *mut core::ffi::c_void,
+        *mut *mut core::ffi::c_void,
+    ) -> windows_core::HRESULT,
 }
 windows_core::imp::define_interface!(
     IFrameworkTemplate,

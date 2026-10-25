@@ -86,9 +86,10 @@ pub use native::app::*;
 pub use native::bootstrap;
 pub use native::bootstrap::*;
 pub use native::notifyicon::{NotifyIcon, NotifyIconBuilder, NotifyIconEvent, ScreenPoint};
+pub use native::transient_menu::{TransientMenu, TransientMenuItem};
 pub use native::winui;
 pub use native::winui::dispatcher::WinUIDispatcher;
-pub use native::winui::host::{
+pub use native::winui::hosting::{
     Backdrop, PresenterKind, ReactorHost, RequestedTheme, set_backdrop, set_requested_theme,
 };
 pub use native::winui::*;
