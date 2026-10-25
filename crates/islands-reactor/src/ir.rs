@@ -506,6 +506,8 @@ pub trait Backend {
 
 /// Recorded backend operation, used by [`RecordingBackend`] for tests.
 #[doc(hidden)]
+#[cfg(test)]
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum Op {
     Create {
@@ -632,6 +634,7 @@ pub enum Op {
 /// can replay events back into the recorded handlers; used by the test
 /// suite as the deterministic counterpart to `WinUIBackend`.
 #[doc(hidden)]
+#[cfg(test)]
 #[derive(Default)]
 pub struct RecordingBackend {
     pub ops: Vec<Op>,
@@ -657,11 +660,14 @@ pub struct RecordingBackend {
 /// concrete `IInspectable` works — the reconciler only forwards it opaquely to
 /// mount / unmount callbacks — so a boxed `IReference<i32>` is the cheapest
 /// dependency-free choice (the real WinUI backend returns the XAML element).
+#[cfg(test)]
 fn stub_native_element() -> windows_core::IInspectable {
     windows::Foundation::PropertyValue::CreateInt32(0)
         .expect("PropertyValue::CreateInt32 should produce an inspectable test stub")
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 impl RecordingBackend {
     pub fn new() -> Self {
         Self::default()
@@ -795,6 +801,7 @@ impl RecordingBackend {
     }
 }
 
+#[cfg(test)]
 impl Backend for RecordingBackend {
     fn create(&mut self, kind: ControlKind) -> ControlId {
         self.next_id += 1;

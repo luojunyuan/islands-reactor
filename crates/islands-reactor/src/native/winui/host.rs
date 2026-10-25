@@ -16,7 +16,7 @@ use windows::{
         },
         libloaderapi::{GetModuleHandleW, GetProcAddress},
         minwindef::{HINSTANCE, LPARAM, LRESULT, WPARAM},
-        windef::{COLORREF, HMENU, HWND, POINT, RECT},
+        windef::{HMENU, HWND, POINT, RECT},
         winuser::{
             CREATESTRUCTW, CW_USEDEFAULT, ClientToScreen, CreateWindowExW, DefWindowProcW,
             DispatchMessageW, GWLP_USERDATA, GetClientRect, GetDpiForWindow, GetMessageW,

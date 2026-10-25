@@ -1,3 +1,3 @@
-//! Backward-compat re-exports — factory functions now live in `core/widgets/*`.
+//! Backward-compatible re-exports for the factories in `widgets/*`.
 
-pub use crate::widgets::*;
+pub use crate::declaration::widgets::*;

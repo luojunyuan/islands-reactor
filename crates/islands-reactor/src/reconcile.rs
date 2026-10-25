@@ -12,7 +12,7 @@ mod widget_dispatch;
 mod wrappers;
 
 pub(crate) use self::templated::TemplatedListState;
-pub use self::templated::{RealizationQueue, RealizationRequest, new_realization_queue};
+pub use self::templated::{RealizationQueue, new_realization_queue};
 
 /// Diff/apply engine that drives a [`Backend`] from successive
 /// [`Element`] trees. Owns the bookkeeping needed to reuse controls

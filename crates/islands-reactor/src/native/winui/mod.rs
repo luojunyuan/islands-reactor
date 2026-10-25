@@ -8,7 +8,7 @@ pub(crate) mod xaml_interop;
 
 pub use backend::*;
 pub use dispatcher::*;
-pub use hooks::*;
+pub use hooks::{DispatcherTimer, Rendering, on_rendering};
 pub use host::*;
 pub use template_cache::*;
 

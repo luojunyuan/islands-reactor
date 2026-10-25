@@ -1,5 +1,37 @@
+pub(crate) mod accessibility;
+pub(crate) mod animation;
+pub(crate) mod callback;
+pub(crate) mod element;
 pub mod factories;
+pub(crate) mod geometry;
+pub(crate) mod into_elements;
+pub(crate) mod keyboard;
 pub(crate) mod modifiers;
+pub(crate) mod pointer;
+pub(crate) mod prop_binding;
+pub(crate) mod resource;
+pub(crate) mod rich_text;
+pub(crate) mod templated_list;
+pub(crate) mod theme;
+pub(crate) mod tooltip;
+pub(crate) mod visual_modifiers;
+pub(crate) mod widget;
+pub(crate) mod widgets;
+
+pub(crate) use crate::*;
+pub(crate) use accessibility::*;
+pub(crate) use animation::*;
+pub(crate) use callback::*;
+pub(crate) use element::*;
+pub(crate) use geometry::*;
+pub(crate) use keyboard::*;
+pub(crate) use prop_binding::*;
+pub(crate) use rich_text::*;
+pub(crate) use templated_list::*;
+pub(crate) use theme::*;
+pub(crate) use tooltip::*;
+pub(crate) use visual_modifiers::*;
+pub(crate) use widget::*;
 
 pub use factories::*;
 pub use modifiers::*;

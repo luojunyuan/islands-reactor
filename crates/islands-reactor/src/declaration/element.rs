@@ -1,18 +1,12 @@
-use super::component_element::ComponentElement;
+use crate::component_element::ComponentElement;
 // Re-exports for backward compatibility: the types below were previously
 // declared in this module and are now sourced from sibling modules
 // (`geometry`, `keyboard`, `modifiers`, `accessibility`, `widgets`). Both
 // `crate::element::X` and `crate::X` continue to resolve.
-pub use super::accessibility::{AccessibilityModifiers, HeadingLevel, LiveSetting};
-pub use super::geometry::{
-    Brush, Color, GridLength, HorizontalAlignment, ScrollBarVisibility, Thickness,
-    VerticalAlignment,
-};
-pub use super::keyboard::{KeyModifiers, KeyboardAccelerator, KeyboardKey};
-pub use super::modifiers::{AttachedProps, GridPlacement, Modifiers};
-pub use super::pointer::{PointerEventInfo, PointerHandlers};
-pub use super::tooltip::{Tooltip, TooltipContent, TooltipPlacement};
-// Widget structs and their support types now live under `core/widgets/`,
+use super::accessibility::{AccessibilityModifiers, HeadingLevel, LiveSetting};
+use super::keyboard::KeyboardAccelerator;
+use super::visual_modifiers::{AttachedProps, Modifiers};
+// Widget structs and their support types live under `widgets/`,
 // but the historical `crate::element::X` path is part of the
 // public API surface. Re-export them here.
 pub use super::widgets::*;
@@ -55,7 +49,7 @@ pub fn group(children: Vec<Element>) -> Element {
 ///
 /// To add a new built-in widget element: add a row here, define the widget
 /// struct and its `impl Widget`, add the matching `ControlKind` variant in
-/// `core/backend.rs`, and add the matching row in
+/// `ir.rs`, and add the matching row in
 /// `winui/backend.rs::define_handles!`.
 macro_rules! define_element {
     ( $( $variant:ident ),* $(,)? ) => {
