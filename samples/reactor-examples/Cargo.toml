@@ -1,0 +1,11 @@
+[package]
+name = "islands-reactor-examples"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+islands-reactor = { path = "../../crates/islands-reactor" }
+
+[build-dependencies]
+islands-reactor-setup = { path = "../../crates/islands-reactor-setup" }
